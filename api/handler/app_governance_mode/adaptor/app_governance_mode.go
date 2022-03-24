@@ -15,6 +15,8 @@ type AppGoveranceModeHandler interface {
 // NewAppGoveranceModeHandler -
 func NewAppGoveranceModeHandler(governanceMode string, kubeClient clientset.Interface) (AppGoveranceModeHandler, error) {
 	switch governanceMode {
+	case model.GovernanceModeLinkerdServiceMesh:
+		return NewLinkerdGoveranceMode(kubeClient), nil
 	case model.GovernanceModeIstioServiceMesh:
 		return NewIstioGoveranceMode(kubeClient), nil
 	case model.GovernanceModeBuildInServiceMesh:
@@ -34,6 +36,8 @@ func IsGovernanceModeValid(governanceMode string) bool {
 	case model.GovernanceModeKubernetesNativeService:
 		return true
 	case model.GovernanceModeIstioServiceMesh:
+		return true
+	case model.GovernanceModeLinkerdServiceMesh:
 		return true
 	}
 	return false
