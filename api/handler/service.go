@@ -2631,7 +2631,7 @@ func (s *ServiceAction) SyncComponentVolumes(tx *gorm.DB, components []*api_mode
 		volumes      []*dbmodel.TenantServiceVolume
 	)
 	for _, component := range components {
-		if component.Volumes == nil {
+		if len(component.Volumes) == 0 {
 			continue
 		}
 		componentIDs = append(componentIDs, component.ComponentBase.ComponentID)
