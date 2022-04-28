@@ -19,7 +19,7 @@ jobs:
           IMAGE_NAMESPACE: ${{ secrets.IMAGE_NAMESPACE }}
           VERSION: ${{ github.event.client_payload.version }}
         run: |
-          if '${{ github.event.action }}' == 'GitHub';then
+          if [ '${{ github.event.action }}' == 'GitHub' ];then
             git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-ui.git        
           else
             git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-ui-cloud.git        
