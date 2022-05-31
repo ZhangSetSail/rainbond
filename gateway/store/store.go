@@ -694,6 +694,7 @@ func (s *k8sStore) ListVirtualService() (l7vs []*v1.VirtualService, l4vs []*v1.V
 						}
 						backendName = util.BackendName(backendName, ing.Namespace)
 						location.NameCondition[backendName] = nameCondition
+						logrus.Infof("不能重复%v", backendName)
 						backend := backend{
 							name:              backendName,
 							weight:            anns.Weight.Weight,
