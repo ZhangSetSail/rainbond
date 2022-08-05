@@ -21,6 +21,8 @@ package store
 import (
 	"context"
 	"fmt"
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/batch/v1beta1"
 	betav1 "k8s.io/api/networking/v1beta1"
 	"os"
 	"sync"
@@ -423,10 +425,65 @@ func (a *appRuntimeStore) OnAdd(obj interface{}) {
 
 		}
 	}
+	if job, ok := obj.(*batchv1.Job); ok {
+		serviceID := job.Labels["service_id"]
+		version := job.Labels["version"]
+		createrID := job.Labels["creater_id"]
+		migrator := job.Labels["migrator"]
+		if serviceID != "" && version != "" && createrID != "" {
+			appservice, err := a.getAppService(serviceID, version, createrID, true)
+			if err == conversion.ErrServiceNotFound {
+				a.conf.KubeClient.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{})
+			}
+			if appservice != nil {
+				appservice.SetJob(job)
+				if migrator == "rainbond" {
+					label := "service_id=" + serviceID
+					pods, _ := a.conf.KubeClient.CoreV1().Pods(job.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: label})
+					if pods != nil {
+						for _, pod := range pods.Items {
+							pod := pod
+							appservice.SetPods(&pod)
+						}
+					}
+				}
+				return
+			}
+
+		}
+	}
+	if crjob, ok := obj.(*v1beta1.CronJob); ok {
+		serviceID := crjob.Labels["service_id"]
+		version := crjob.Labels["version"]
+		createrID := crjob.Labels["creater_id"]
+		migrator := crjob.Labels["migrator"]
+		if serviceID != "" && version != "" && createrID != "" {
+			appservice, err := a.getAppService(serviceID, version, createrID, true)
+			if err == conversion.ErrServiceNotFound {
+				a.conf.KubeClient.BatchV1beta1().CronJobs(crjob.Namespace).Delete(context.Background(), crjob.Name, metav1.DeleteOptions{})
+			}
+			if appservice != nil {
+				appservice.SetCronJob(crjob)
+				if migrator == "rainbond" {
+					label := "service_id=" + serviceID
+					pods, _ := a.conf.KubeClient.CoreV1().Pods(crjob.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: label})
+					if pods != nil {
+						for _, pod := range pods.Items {
+							pod := pod
+							appservice.SetPods(&pod)
+						}
+					}
+				}
+				return
+			}
+
+		}
+	}
 	if statefulset, ok := obj.(*appsv1.StatefulSet); ok {
 		serviceID := statefulset.Labels["service_id"]
 		version := statefulset.Labels["version"]
 		createrID := statefulset.Labels["creater_id"]
+		migrator := statefulset.Labels["migrator"]
 		if serviceID != "" && version != "" && createrID != "" {
 			appservice, err := a.getAppService(serviceID, version, createrID, true)
 			if err == conversion.ErrServiceNotFound {
@@ -434,6 +491,16 @@ func (a *appRuntimeStore) OnAdd(obj interface{}) {
 			}
 			if appservice != nil {
 				appservice.SetStatefulSet(statefulset)
+				if migrator == "rainbond" {
+					label := "service_id=" + serviceID
+					pods, _ := a.conf.KubeClient.CoreV1().Pods(statefulset.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: label})
+					if pods != nil {
+						for _, pod := range pods.Items {
+							pod := pod
+							appservice.SetPods(&pod)
+						}
+					}
+				}
 				return
 			}
 		}
@@ -529,6 +596,7 @@ func (a *appRuntimeStore) OnAdd(obj interface{}) {
 			}
 		}
 	}
+
 	if hpa, ok := obj.(*autoscalingv2.HorizontalPodAutoscaler); ok {
 		serviceID := hpa.Labels["service_id"]
 		version := hpa.Labels["version"]

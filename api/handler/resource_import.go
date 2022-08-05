@@ -245,6 +245,7 @@ func (c *clusterAction) CreateComponent(app *dbmodel.Application, tenantID strin
 			if job.Spec.Template.Labels == nil {
 				job.Spec.Template.Labels = make(map[string]string)
 			}
+			job.Spec.Template.Labels = changeLabel(job.Spec.Template.Labels)
 			_, err = c.clientset.BatchV1().Jobs(namespace).Update(context.Background(), job, metav1.UpdateOptions{})
 			if err != nil {
 				logrus.Errorf("failed to update StatefulSets %v:%v", namespace, err)
