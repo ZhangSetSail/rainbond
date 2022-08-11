@@ -145,6 +145,11 @@ func (c *clusterAction) AppYamlResourceDetailed(yamlResource api_model.YamlResou
 				deployJSON, _ := json.Marshal(buildResource.Resource)
 				var deployObject appv1.Deployment
 				json.Unmarshal(deployJSON, &deployObject)
+				var replicas int32
+				if deployObject.Spec.Replicas == nil {
+					replicas = 1
+					deployObject.Spec.Replicas = &replicas
+				}
 				basic := api_model.BasicManagement{
 					ResourceType: api_model.Deployment,
 					Replicas:     deployObject.Spec.Replicas,
@@ -168,6 +173,11 @@ func (c *clusterAction) AppYamlResourceDetailed(yamlResource api_model.YamlResou
 				jobJSON, _ := json.Marshal(buildResource.Resource)
 				var jobObject batchv1.Job
 				json.Unmarshal(jobJSON, &jobObject)
+				var replicas int32
+				if jobObject.Spec.Completions == nil {
+					replicas = 1
+					jobObject.Spec.Completions = &replicas
+				}
 				basic := api_model.BasicManagement{
 					ResourceType: api_model.Job,
 					Replicas:     jobObject.Spec.Completions,
@@ -191,6 +201,11 @@ func (c *clusterAction) AppYamlResourceDetailed(yamlResource api_model.YamlResou
 				cjJSON, _ := json.Marshal(buildResource.Resource)
 				var cjObject v1beta1.CronJob
 				json.Unmarshal(cjJSON, &cjObject)
+				var replicas int32
+				if cjObject.Spec.JobTemplate.Spec.Completions == nil {
+					replicas = 1
+					cjObject.Spec.JobTemplate.Spec.Completions = &replicas
+				}
 				basic := api_model.BasicManagement{
 					ResourceType: api_model.CronJob,
 					Replicas:     cjObject.Spec.JobTemplate.Spec.Completions,
@@ -214,6 +229,11 @@ func (c *clusterAction) AppYamlResourceDetailed(yamlResource api_model.YamlResou
 				sfsJSON, _ := json.Marshal(buildResource.Resource)
 				var sfsObject appv1.StatefulSet
 				json.Unmarshal(sfsJSON, &sfsObject)
+				var replicas int32
+				if sfsObject.Spec.Replicas == nil {
+					replicas = 1
+					sfsObject.Spec.Replicas = &replicas
+				}
 				basic := api_model.BasicManagement{
 					ResourceType: api_model.StateFulSet,
 					Replicas:     sfsObject.Spec.Replicas,
