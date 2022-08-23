@@ -55,6 +55,7 @@ jobs:
           IMAGE_NAMESPACE: ${{ secrets.IMAGE_NAMESPACE }}
           DOMESTIC_BASE_NAME: ${{ secrets.DOMESTIC_BASE_NAME }}
           BASEURL: ${{ github.event.client_payload.clone_url }}
+          BRANCH: ${{ github.event.client_payload.branch }}
         run: |
           if '${{ github.event.action }}' == 'GitHub';then
             git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-console.git  
