@@ -20,11 +20,12 @@ jobs:
           VERSION: ${{ github.event.client_payload.version }}
         run: |
           if [ '${{ github.event.action }}' == 'GitHub' ];then
-            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-ui.git        
+            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-ui.git   
+            cd rainbond-ui
           else
-            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-ui-cloud.git        
+            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-ui-cloud.git 
+            cd rainbond-ui-cloud
           fi
-          cd rainbond-ui
           chmod +x ./build.sh
           ./build.sh
           
@@ -55,11 +56,12 @@ jobs:
           DOMESTIC_BASE_NAME: ${{ secrets.DOMESTIC_BASE_NAME }}
         run: |
           if '${{ github.event.action }}' == 'GitHub';then
-            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-console.git       
+            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-console.git  
+            cd rainbond-console
           else
-            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-console-cloud.git  
+            git clone -b ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.clone_url }}/rainbond-console-cloud.git
+            cd rainbond-console-cloud
           fi
-          cd rainbond-console
           chmod +x  ./release.sh
           ./release.sh allinone
   
