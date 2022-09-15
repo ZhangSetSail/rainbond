@@ -21,6 +21,9 @@ package exector
 import (
 	"context"
 	"fmt"
+	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/namespaces"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -72,7 +75,12 @@ func NewManager(conf option.Config, mqc mqclient.MQClient) (Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	containerdClient, err := containerd.New("/run/docker/containerd/containerd.sock")
+	if err != nil {
+		return nil, err
+	}
+	cctx := namespaces.WithNamespace(context.Background(), "rainbond")
+	imageService := containerdClient.ImageService()
 	var restConfig *rest.Config // TODO fanyangyang use k8sutil.NewRestConfig
 	if conf.KubeConfig != "" {
 		restConfig, err = clientcmd.BuildConfigFromFlags("", conf.KubeConfig)
@@ -120,7 +128,18 @@ func NewManager(conf option.Config, mqc mqclient.MQClient) (Manager, error) {
 		ctx:               ctx,
 		cancel:            cancel,
 		cfg:               conf,
+		Ctr: ContainerdAPI{
+			ImageService:     imageService,
+			CCtx:             cctx,
+			ContainerdClient: containerdClient,
+		},
 	}, nil
+}
+
+type ContainerdAPI struct {
+	ImageService     images.Store
+	CCtx             context.Context
+	ContainerdClient *containerd.Client
 }
 
 type exectorManager struct {
@@ -135,6 +154,7 @@ type exectorManager struct {
 	cancel            context.CancelFunc
 	runningTask       sync.Map
 	cfg               option.Config
+	Ctr               ContainerdAPI
 }
 
 //TaskWorker worker interface
