@@ -20,6 +20,7 @@ package monitor
 
 import (
 	"context"
+	"github.com/goodrain/rainbond/node/monitor"
 	"net/http"
 
 	"github.com/go-kit/kit/log"
@@ -141,6 +142,9 @@ func (m *manager) HandleStatsd(w http.ResponseWriter, r *http.Request) {
 
 //NodeExporter node exporter
 func (m *manager) NodeExporter(w http.ResponseWriter, r *http.Request) {
+	registry := prometheus.NewRegistry()
+	//注册自定义采集器
+	registry.MustRegister(monitor.NewExporter())
 	gatherers := prometheus.Gatherers{
 		prometheus.DefaultGatherer,
 		m.nodeExporterRestry,
@@ -150,6 +154,7 @@ func (m *manager) NodeExporter(w http.ResponseWriter, r *http.Request) {
 		promhttp.HandlerOpts{
 			ErrorLog:      logrus.StandardLogger(),
 			ErrorHandling: promhttp.ContinueOnError,
+			Registry:      registry,
 		})
 	h.ServeHTTP(w, r)
 }
