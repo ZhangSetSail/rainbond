@@ -1,4 +1,4 @@
-FROM  envoyproxy/envoy:v1.13.1
+FROM  envoyproxy/envoy:v1.17.1
 ARG RELEASE_DESC
 LABEL "author"="zengqg@goodrain.com"
 RUN apt-get update && apt-get install -y bash curl net-tools wget vim && \
