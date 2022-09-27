@@ -492,6 +492,14 @@ func (a *ApplicationAction) Install(ctx context.Context, app *dbmodel.Applicatio
 	defer cancel()
 	helmApp.Spec.Overrides = overrides
 	helmApp.Spec.PreStatus = v1alpha1.HelmAppPreStatusConfigured
+	test, err := ObjectToJSONORYaml("yaml", helmApp)
+	if err != nil {
+		logrus.Infof("第一：%v", helmApp)
+		logrus.Infof("第二：%v", err)
+
+	} else {
+		logrus.Infof("第三：%v", test)
+	}
 	_, err = a.rainbondClient.RainbondV1alpha1().HelmApps(tenant.Namespace).Update(ctx3, helmApp, metav1.UpdateOptions{})
 	if err != nil {
 		return err
