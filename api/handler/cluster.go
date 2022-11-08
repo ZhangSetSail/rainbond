@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"github.com/goodrain/rainbond/api/client/prometheus"
 	"github.com/goodrain/rainbond/api/model"
 	"github.com/goodrain/rainbond/api/util"
 	"github.com/goodrain/rainbond/api/util/bcode"
@@ -56,13 +57,14 @@ type ClusterHandler interface {
 }
 
 // NewClusterHandler -
-func NewClusterHandler(clientset *kubernetes.Clientset, RbdNamespace, grctlImage string, config *rest.Config, mapper meta.RESTMapper) ClusterHandler {
+func NewClusterHandler(clientset *kubernetes.Clientset, RbdNamespace, grctlImage string, config *rest.Config, mapper meta.RESTMapper, prometheusCli prometheus.Interface) ClusterHandler {
 	return &clusterAction{
-		namespace:  RbdNamespace,
-		clientset:  clientset,
-		config:     config,
-		mapper:     mapper,
-		grctlImage: grctlImage,
+		namespace:     RbdNamespace,
+		clientset:     clientset,
+		config:        config,
+		mapper:        mapper,
+		grctlImage:    grctlImage,
+		prometheusCli: prometheusCli,
 	}
 }
 
@@ -75,6 +77,7 @@ type clusterAction struct {
 	mapper           meta.RESTMapper
 	grctlImage       string
 	client           client.Client
+	prometheusCli    prometheus.Interface
 }
 
 //GetClusterInfo -
@@ -120,30 +123,33 @@ func (c *clusterAction) GetClusterInfo(ctx context.Context) (*model.ClusterResou
 	var maxAllocatableMemory *model.NodeResource
 	for i := range usedNodeList {
 		node := usedNodeList[i]
-
-		pods, err := c.listPods(ctx, node.Name)
-		if err != nil {
-			return nil, fmt.Errorf("list pods: %v", err)
-		}
-
+		query := fmt.Sprintf(`rbd_api_exporter_cluster_pod_memory{node_name="%v"}`, node.Name)
+		podMemoryMetric := c.prometheusCli.GetMetric(query, time.Now())
+		query = fmt.Sprintf(`rbd_api_exporter_cluster_pod_cpu{node_name="%v"}`, node.Name)
+		podCPUMetric := c.prometheusCli.GetMetric(query, time.Now())
+		query = fmt.Sprintf(`rbd_api_exporter_cluster_pod_se{node_name="%v"}`, node.Name)
+		podESMetric := c.prometheusCli.GetMetric(query, time.Now())
 		nodeAllocatableResource := model.NewResource(node.Status.Allocatable)
-		for _, pod := range pods {
+		for i, pod := range podMemoryMetric.MetricData.MetricValues {
+			logrus.Infof("Sample:%v", pod.Sample.Value())
+			logrus.Infof("Metadata:%v", pod.Metadata)
+			memory := int64(pod.Sample.Value())
+			cpu := int64(podCPUMetric.MetricData.MetricValues[i].Sample.Value())
+			es := int64(podESMetric.MetricData.MetricValues[i].Sample.Value())
 			nodeAllocatableResource.AllowedPodNumber--
-			for _, c := range pod.Spec.Containers {
-				nodeAllocatableResource.Memory -= c.Resources.Requests.Memory().Value()
-				nodeAllocatableResource.MilliCPU -= c.Resources.Requests.Cpu().MilliValue()
-				nodeAllocatableResource.EphemeralStorage -= c.Resources.Requests.StorageEphemeral().Value()
-				if isNodeReady(node) {
-					healthcpuR += c.Resources.Requests.Cpu().MilliValue()
-					healthmemR += c.Resources.Requests.Memory().Value()
-				} else {
-					unhealthCPUR += c.Resources.Requests.Cpu().MilliValue()
-					unhealthMemR += c.Resources.Requests.Memory().Value()
-				}
-				if pod.Labels["creator"] == "Rainbond" {
-					rbdMemR += c.Resources.Requests.Memory().Value()
-					rbdCPUR += c.Resources.Requests.Cpu().MilliValue()
-				}
+			nodeAllocatableResource.Memory -= memory
+			nodeAllocatableResource.MilliCPU -= cpu
+			nodeAllocatableResource.EphemeralStorage -= es
+			if isNodeReady(node) {
+				healthcpuR += cpu
+				healthmemR += memory
+			} else {
+				unhealthCPUR += cpu
+				unhealthMemR += memory
+			}
+			if _, ok := pod.Metadata["service_id"]; ok {
+				rbdMemR += memory
+				rbdCPUR += cpu
 			}
 		}
 		nodeAllocatableResourceList[node.Name] = nodeAllocatableResource
