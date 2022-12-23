@@ -90,6 +90,7 @@ func (c *ContainerLogManage) handleLogger() {
 		case cevent := <-c.cchan:
 			switch cevent.Action {
 			case sources.CONTAINER_ACTION_START, sources.CONTAINER_ACTION_CREATE:
+				logrus.Infof("改bug进行时～～～～～～～%v", cevent.Action)
 				if cevent.Container.ContainerRuntime == sources.ContainerRuntimeDocker {
 					loggerType := cevent.Container.HostConfig.LogConfig.Type
 					if loggerType != "json-file" && loggerType != "syslog" {
