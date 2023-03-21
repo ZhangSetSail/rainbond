@@ -1,8 +1,7 @@
 name: pr-ci-build
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize, labeled, unlabeled]
+  workflow_dispatch:
 
 jobs:
   build:
