@@ -35,7 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-//OneNodeCluster conver cluster of on envoy node
+// OneNodeCluster conver cluster of on envoy node
 func OneNodeCluster(serviceAlias, namespace string, configs *corev1.ConfigMap, services []*corev1.Service) ([]types.Resource, error) {
 	resources, _, err := GetPluginConfigs(configs)
 	if err != nil {
@@ -77,52 +77,53 @@ func upstreamClusters(serviceAlias, namespace string, dependsServices []*api_mod
 	for _, service := range services {
 		inner, ok := service.Labels["service_type"]
 		destServiceAlias := GetServiceAliasByService(service)
-		port := service.Spec.Ports[0]
 		if !ok || inner != "inner" {
 			continue
 		}
-		getOptions := func() (d envoyv2.RainbondPluginOptions) {
-			relPort, _ := strconv.Atoi(service.Labels["origin_port"])
-			if relPort == 0 {
-				relPort = int(port.TargetPort.IntVal)
-			}
-			depServiceIndex := fmt.Sprintf("%s_%s_%s_%d", namespace, serviceAlias, GetServiceAliasByService(service), relPort)
-			if _, ok := clusterConfig[depServiceIndex]; ok {
-				return envoyv2.GetOptionValues(clusterConfig[depServiceIndex].Options)
-			}
-			return envoyv2.GetOptionValues(nil)
-		}
-		var clusterOption envoyv2.ClusterOptions
-		clusterOption.Name = fmt.Sprintf("%s_%s_%s_%v", namespace, serviceAlias, GetServiceAliasByService(service), port.Port)
-		options := getOptions()
-		clusterOption.OutlierDetection = envoyv2.CreatOutlierDetection(options)
-		clusterOption.CircuitBreakers = envoyv2.CreateCircuitBreaker(options)
-		clusterOption.ServiceName = fmt.Sprintf("%s_%s_%s_%v", namespace, serviceAlias, destServiceAlias, port.Port)
-		if domain, ok := service.Annotations["domain"]; ok && domain != "" {
-			logrus.Debugf("domain endpoint[%s], create logical_dns cluster: ", domain)
-			clusterOption.ClusterType = v2.Cluster_LOGICAL_DNS
-			clusterOption.LoadAssignment = envoyv2.CreateDNSLoadAssignment(serviceAlias, namespace, domain, service)
-			if strings.HasPrefix(domain, "https://") {
-				splitDomain := strings.Split(domain, "https://")
-				if len(splitDomain) == 2 {
-					clusterOption.TransportSocket = transportSocket(clusterOption.Name, splitDomain[1])
+		for _, port := range service.Spec.Ports {
+			getOptions := func() (d envoyv2.RainbondPluginOptions) {
+				relPort, _ := strconv.Atoi(service.Labels["origin_port"])
+				if relPort == 0 {
+					relPort = int(port.TargetPort.IntVal)
 				}
+				depServiceIndex := fmt.Sprintf("%s_%s_%s_%d", namespace, serviceAlias, GetServiceAliasByService(service), relPort)
+				if _, ok := clusterConfig[depServiceIndex]; ok {
+					return envoyv2.GetOptionValues(clusterConfig[depServiceIndex].Options)
+				}
+				return envoyv2.GetOptionValues(nil)
 			}
-		} else {
-			clusterOption.ClusterType = v2.Cluster_EDS
-		}
-		clusterOption.HealthyPanicThreshold = options.HealthyPanicThreshold
-		clusterOption.ConnectionTimeout = envoyv2.ConverTimeDuration(options.ConnectionTimeout)
-		// set port realy protocol
-		portProtocol := service.Labels["port_protocol"]
-		clusterOption.Protocol = portProtocol
-		clusterOption.GrpcHealthServiceName = options.GrpcHealthServiceName
-		clusterOption.HealthTimeout = options.HealthCheckTimeout
-		clusterOption.HealthInterval = options.HealthCheckInterval
-		cluster := envoyv2.CreateCluster(clusterOption)
-		if cluster != nil {
-			logrus.Debugf("cluster is : %v", cluster)
-			cdsClusters = append(cdsClusters, cluster)
+			var clusterOption envoyv2.ClusterOptions
+			clusterOption.Name = fmt.Sprintf("%s_%s_%s_%v", namespace, serviceAlias, GetServiceAliasByService(service), port.Port)
+			options := getOptions()
+			clusterOption.OutlierDetection = envoyv2.CreatOutlierDetection(options)
+			clusterOption.CircuitBreakers = envoyv2.CreateCircuitBreaker(options)
+			clusterOption.ServiceName = fmt.Sprintf("%s_%s_%s_%v", namespace, serviceAlias, destServiceAlias, port.Port)
+			if domain, ok := service.Annotations["domain"]; ok && domain != "" {
+				logrus.Debugf("domain endpoint[%s], create logical_dns cluster: ", domain)
+				clusterOption.ClusterType = v2.Cluster_LOGICAL_DNS
+				clusterOption.LoadAssignment = envoyv2.CreateDNSLoadAssignment(serviceAlias, namespace, domain, service, port)
+				if strings.HasPrefix(domain, "https://") {
+					splitDomain := strings.Split(domain, "https://")
+					if len(splitDomain) == 2 {
+						clusterOption.TransportSocket = transportSocket(clusterOption.Name, splitDomain[1])
+					}
+				}
+			} else {
+				clusterOption.ClusterType = v2.Cluster_EDS
+			}
+			clusterOption.HealthyPanicThreshold = options.HealthyPanicThreshold
+			clusterOption.ConnectionTimeout = envoyv2.ConverTimeDuration(options.ConnectionTimeout)
+			// set port realy protocol
+			portProtocol := service.Labels[fmt.Sprintf("port_protocol_%v", port)]
+			clusterOption.Protocol = portProtocol
+			clusterOption.GrpcHealthServiceName = options.GrpcHealthServiceName
+			clusterOption.HealthTimeout = options.HealthCheckTimeout
+			clusterOption.HealthInterval = options.HealthCheckInterval
+			cluster := envoyv2.CreateCluster(clusterOption)
+			if cluster != nil {
+				logrus.Debugf("cluster is : %v", cluster)
+				cdsClusters = append(cdsClusters, cluster)
+			}
 		}
 	}
 	return
@@ -146,8 +147,8 @@ func transportSocket(name, domain string) *core.TransportSocket {
 	}
 }
 
-//downstreamClusters handle app self cluster
-//only local port
+// downstreamClusters handle app self cluster
+// only local port
 func downstreamClusters(serviceAlias, namespace string, ports []*api_model.BasePort) (cdsClusters []*v2.Cluster) {
 	for i := range ports {
 		port := ports[i]

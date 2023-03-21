@@ -78,6 +78,7 @@ type ApplicationDao interface {
 	ListByAppIDs(appIDs []string) ([]*model.Application, error)
 	IsK8sAppDuplicate(tenantID, AppID, k8sApp string) bool
 	GetAppByName(tenantID, k8sAppName string) (*model.Application, error)
+	DeleteAppByK8sApp(tenantID, k8sAppName string) error
 }
 
 //AppConfigGroupDao Application config group Dao
@@ -186,7 +187,7 @@ type TenantServicesPortDao interface {
 	HasOpenPort(sid string) bool
 	DelByServiceID(sid string) error
 	ListInnerPortsByServiceIDs(serviceIDs []string) ([]*model.TenantServicesPort, error)
-	ListByK8sServiceNames(serviceIDs []string) ([]*model.TenantServicesPort, error)
+	ListByK8sServiceNames(k8sServiceNames []string) ([]*model.TenantServicesPort, error)
 	CreateOrUpdatePortsInBatch(ports []*model.TenantServicesPort) error
 	DeleteByComponentIDs(componentIDs []string) error
 }
@@ -428,11 +429,13 @@ type EventDao interface {
 	ListByTargetID(targetID string) ([]*model.ServiceEvent, error)
 	GetEventsByTarget(target, targetID string, offset, liimt int) ([]*model.ServiceEvent, int, error)
 	GetEventsByTenantID(tenantID string, offset, limit int) ([]*model.ServiceEvent, int, error)
+	GetEventsByTenantIDs(tenantID []string, offset, limit int) ([]*model.EventAndBuild, error)
 	GetLastASyncEvent(target, targetID string) (*model.ServiceEvent, error)
 	UnfinishedEvents(target, targetID string, optTypes ...string) ([]*model.ServiceEvent, error)
 	LatestFailurePodEvent(podName string) (*model.ServiceEvent, error)
 	UpdateReason(eventID string, reason string) error
 	SetEventStatus(ctx context.Context, status model.EventStatus) error
+	DeleteEvents(eventIDs []string) error
 	UpdateInBatch(events []*model.ServiceEvent) error
 }
 
@@ -636,7 +639,7 @@ type ComponentK8sAttributeDao interface {
 type K8sResourceDao interface {
 	Dao
 	ListByAppID(appID string) ([]model.K8sResource, error)
-	CreateK8sResourceInBatch(k8sResources []*model.K8sResource) error
-	DeleteK8sResourceInBatch(appID, name string, kind string) error
-	GetK8sResourceByNameInBatch(appID, name, kind string) ([]model.K8sResource, error)
+	CreateK8sResource(k8sResources []*model.K8sResource) error
+	DeleteK8sResource(appID, name string, kind string) error
+	GetK8sResourceByName(appID, name, kind string) (model.K8sResource, error)
 }

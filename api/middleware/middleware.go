@@ -66,6 +66,7 @@ func InitTenant(next http.Handler) http.Handler {
 			httputil.ReturnError(r, w, 500, "get assign tenant uuid failed")
 			return
 		}
+
 		ctx := context.WithValue(r.Context(), ctxutil.ContextKey("tenant_name"), tenantName)
 		ctx = context.WithValue(ctx, ctxutil.ContextKey("tenant_id"), tenant.UUID)
 		ctx = context.WithValue(ctx, ctxutil.ContextKey("tenant"), tenant)
@@ -200,6 +201,10 @@ func Proxy(next http.Handler) http.Handler {
 			proxy.Proxy(w, r)
 			return
 		}
+		if strings.HasPrefix(r.RequestURI, "/v2/container_disk") {
+			handler.GetNodeProxy().Proxy(w, r)
+			return
+		}
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
@@ -236,7 +241,9 @@ func (w *resWriter) WriteHeader(statusCode int) {
 // WrapEL wrap eventlog, handle event log before and after process
 func WrapEL(f http.HandlerFunc, target, optType string, synType int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var serviceKind string
+		var (
+			serviceKind  string
+		)
 		serviceObj := r.Context().Value(ctxutil.ContextKey("service"))
 		if serviceObj != nil {
 			service := serviceObj.(*dbmodel.TenantServices)

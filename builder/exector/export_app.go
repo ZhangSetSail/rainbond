@@ -21,6 +21,7 @@ package exector
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/goodrain/rainbond/builder/sources"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -28,7 +29,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/docker/docker/client"
 	"github.com/goodrain/rainbond-oam/pkg/export"
 	"github.com/goodrain/rainbond-oam/pkg/ram/v1alpha1"
 	ramv1alpha1 "github.com/goodrain/rainbond-oam/pkg/ram/v1alpha1"
@@ -42,13 +42,13 @@ import (
 
 var re = regexp.MustCompile(`\s`)
 
-//ExportApp Export app to specified format(rainbond-app or dockercompose)
+//ExportApp Export app to specified format(rainbond-app or dockercompose or slug)
 type ExportApp struct {
-	EventID      string `json:"event_id"`
-	Format       string `json:"format"`
-	SourceDir    string `json:"source_dir"`
-	Logger       event.Logger
-	DockerClient *client.Client
+	EventID     string `json:"event_id"`
+	Format      string `json:"format"`
+	SourceDir   string `json:"source_dir"`
+	Logger      event.Logger
+	ImageClient sources.ImageClient
 }
 
 func init() {
@@ -60,11 +60,11 @@ func NewExportApp(in []byte, m *exectorManager) (TaskWorker, error) {
 	eventID := gjson.GetBytes(in, "event_id").String()
 	logger := event.GetManager().GetLogger(eventID)
 	return &ExportApp{
-		Format:       gjson.GetBytes(in, "format").String(),
-		SourceDir:    gjson.GetBytes(in, "source_dir").String(),
-		Logger:       logger,
-		EventID:      eventID,
-		DockerClient: m.DockerClient,
+		Format:      gjson.GetBytes(in, "format").String(),
+		SourceDir:   gjson.GetBytes(in, "source_dir").String(),
+		Logger:      logger,
+		EventID:     eventID,
+		ImageClient: m.imageClient,
 	}, nil
 }
 
@@ -77,8 +77,10 @@ func (i *ExportApp) Run(timeout time.Duration) error {
 	// 	return nil
 	// }
 	// Delete the old application group directory and then regenerate the application package
-	if err := i.CleanSourceDir(); err != nil {
-		return err
+	if i.Format != "helm-chart" {
+		if err := i.CleanSourceDir(); err != nil {
+			return err
+		}
 	}
 
 	ram, err := i.parseRAM()
@@ -98,6 +100,20 @@ func (i *ExportApp) Run(timeout time.Duration) error {
 		re, err = i.exportDockerCompose(*ram)
 		if err != nil {
 			logrus.Errorf("export docker compose app package failure %s", err.Error())
+			i.updateStatus("failed", "")
+			return err
+		}
+	} else if i.Format == "slug" {
+		re, err = i.exportSlug(*ram)
+		if err != nil {
+			logrus.Errorf("export slug app package failure %s", err.Error())
+			i.updateStatus("failed", "")
+			return err
+		}
+	} else if i.Format == "helm-chart" {
+		re, err = i.exportHelmChart(*ram)
+		if err != nil {
+			logrus.Errorf("export helm chart package failure %s", err.Error())
 			i.updateStatus("failed", "")
 			return err
 		}
@@ -145,14 +161,37 @@ func (i *ExportApp) cacheMd5() {
 
 // exportRainbondAPP export offline rainbond app
 func (i *ExportApp) exportRainbondAPP(ram v1alpha1.RainbondApplicationConfig) (*export.Result, error) {
-	ramExporter := export.New(export.RAM, i.SourceDir, ram, i.DockerClient, logrus.StandardLogger())
+	ramExporter, err := export.New(export.RAM, i.SourceDir, ram, i.ImageClient.GetContainerdClient(), i.ImageClient.GetDockerClient(), logrus.StandardLogger())
+	if err != nil {
+		return nil, err
+	}
 	return ramExporter.Export()
 }
 
-//  exportDockerCompose export app to docker compose app
+// exportDockerCompose export app to docker compose app
 func (i *ExportApp) exportDockerCompose(ram v1alpha1.RainbondApplicationConfig) (*export.Result, error) {
-	ramExporter := export.New(export.DC, i.SourceDir, ram, i.DockerClient, logrus.StandardLogger())
+	ramExporter, err := export.New(export.DC, i.SourceDir, ram, i.ImageClient.GetContainerdClient(), i.ImageClient.GetDockerClient(), logrus.StandardLogger())
+	if err != nil {
+		return nil, err
+	}
 	return ramExporter.Export()
+}
+
+// exportDockerCompose export app to docker compose app
+func (i *ExportApp) exportSlug(ram v1alpha1.RainbondApplicationConfig) (*export.Result, error) {
+	slugExporter, err := export.New(export.SLG, i.SourceDir, ram, i.ImageClient.GetContainerdClient(), i.ImageClient.GetDockerClient(), logrus.StandardLogger())
+	if err != nil {
+		return nil, err
+	}
+	return slugExporter.Export()
+}
+
+func (i *ExportApp) exportHelmChart(ram v1alpha1.RainbondApplicationConfig) (*export.Result, error) {
+	helmExporter, err := export.New(export.HELM, i.SourceDir, ram, i.ImageClient.GetContainerdClient(), i.ImageClient.GetDockerClient(), logrus.StandardLogger())
+	if err != nil {
+		return nil, err
+	}
+	return helmExporter.Export()
 }
 
 //Stop stop

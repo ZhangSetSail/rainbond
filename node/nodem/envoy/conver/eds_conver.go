@@ -31,7 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-//OneNodeClusterLoadAssignment one envoy node endpoints
+// OneNodeClusterLoadAssignment one envoy node endpoints
 func OneNodeClusterLoadAssignment(serviceAlias, namespace string, endpoints []*corev1.Endpoints, services []*corev1.Service) (clusterLoadAssignment []types.Resource) {
 	for i := range services {
 		if domain, ok := services[i].Annotations["domain"]; ok && domain != "" {
@@ -44,7 +44,6 @@ func OneNodeClusterLoadAssignment(serviceAlias, namespace string, endpoints []*c
 			logrus.Errorf("service alias is empty in k8s service %s", service.Name)
 			continue
 		}
-		clusterName := fmt.Sprintf("%s_%s_%s_%d", namespace, serviceAlias, destServiceAlias, service.Spec.Ports[0].Port)
 		selectEndpoint := getEndpointsByServiceName(endpoints, service.Name)
 		logrus.Debugf("select endpoints %d for service %s", len(selectEndpoint), service.Name)
 		var lendpoints []*endpoint.LocalityLbEndpoints // localityLbEndpoints just support only one content
@@ -107,14 +106,32 @@ func OneNodeClusterLoadAssignment(serviceAlias, namespace string, endpoints []*c
 				lendpoints = append(lendpoints, &endpoint.LocalityLbEndpoints{LbEndpoints: lbe})
 			}
 		}
-		cla := &v2.ClusterLoadAssignment{
-			ClusterName: clusterName,
-			Endpoints:   lendpoints,
-		}
-		if err := cla.Validate(); err != nil {
-			logrus.Errorf("endpoints discover validate failure %s", err.Error())
-		} else {
-			clusterLoadAssignment = append(clusterLoadAssignment, cla)
+		for _, p := range service.Spec.Ports {
+			clusterName := fmt.Sprintf("%s_%s_%s_%d", namespace, serviceAlias, destServiceAlias, p.Port)
+			var (
+				newlendpoints []*endpoint.LocalityLbEndpoints
+				epPort        uint32
+			)
+			for _, ep := range lendpoints {
+				if len(ep.LbEndpoints) > 0 {
+					epPort = ep.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
+				}
+				if int32(epPort) != p.Port {
+					logrus.Debugf("endpoints port [%v] different service port [%v]", epPort, p.Port)
+					continue
+				}
+				newlendpoints = append(newlendpoints, ep)
+			}
+
+			cla := &v2.ClusterLoadAssignment{
+				ClusterName: clusterName,
+				Endpoints:   newlendpoints,
+			}
+			if err := cla.Validate(); err != nil {
+				logrus.Errorf("endpoints discover validate failure %s", err.Error())
+			} else {
+				clusterLoadAssignment = append(clusterLoadAssignment, cla)
+			}
 		}
 	}
 	if len(clusterLoadAssignment) == 0 {

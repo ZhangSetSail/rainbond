@@ -24,9 +24,9 @@ import (
 	"sync"
 
 	"github.com/goodrain/rainbond/util"
+	"github.com/goodrain/rainbond/util/apply"
 	"github.com/goodrain/rainbond/worker/appm/store"
 	v1 "github.com/goodrain/rainbond/worker/appm/types/v1"
-	"github.com/oam-dev/kubevela/pkg/utils/apply"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -101,6 +101,25 @@ func (m *Manager) GetControllerSize() int {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return len(m.controllers)
+}
+
+//ExportController -
+func (m *Manager) ExportController(AppName, AppVersion string, EventIDs []string, end bool, apps ...v1.AppService) error {
+	controllerID := util.NewUUID()
+	controller := &exportController{
+		controllerID: controllerID,
+		appService:   apps,
+		manager:      m,
+		stopChan:     make(chan struct{}),
+		ctx:          context.Background(),
+		AppName:      AppName,
+		AppVersion:   AppVersion,
+		EventIDs:     EventIDs,
+		End:          end,
+	}
+	m.controllers[controllerID] = controller
+	controller.Begin()
+	return nil
 }
 
 //StartController create and start service controller

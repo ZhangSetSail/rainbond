@@ -89,6 +89,11 @@ func NewHelm(namespace, repoFile, repoCache string) (*Helm, error) {
 	}, nil
 }
 
+//UpdateRepo -
+func (h *Helm) UpdateRepo(names string) error {
+	return h.repoUpdate(names, ioutil.Discard)
+}
+
 // PreInstall -
 func (h *Helm) PreInstall(name, chart, version string) error {
 	_, err := h.install(name, chart, version, nil, true, ioutil.Discard)
@@ -96,9 +101,9 @@ func (h *Helm) PreInstall(name, chart, version string) error {
 }
 
 // Install -
-func (h *Helm) Install(name, chart, version string, overrides []string) error {
-	_, err := h.install(name, chart, version, overrides, false, ioutil.Discard)
-	return err
+func (h *Helm) Install(name, chart, version string, overrides []string) (*release.Release, error) {
+	release, err := h.install(name, chart, version, overrides, true, ioutil.Discard)
+	return release, err
 }
 
 func (h *Helm) locateChart(chart, version string) (string, error) {
@@ -172,6 +177,8 @@ func (h *Helm) install(name, chart, version string, overrides []string, dryRun b
 	client.Namespace = h.namespace
 	client.Version = version
 	client.DryRun = dryRun
+	//client.IsUpgrade = true
+	client.ClientOnly = true
 
 	cp, err := h.locateChart(chart, version)
 	if err != nil {
@@ -192,7 +199,11 @@ func (h *Helm) install(name, chart, version string, overrides []string, dryRun b
 	if err != nil {
 		return nil, err
 	}
-
+	var crdYaml string
+	crds := chartRequested.CRDObjects()
+	for _, crd := range crds {
+		crdYaml += string(crd.File.Data)
+	}
 	if err := checkIfInstallable(chartRequested); err != nil {
 		return nil, err
 	}
@@ -229,8 +240,9 @@ func (h *Helm) install(name, chart, version string, overrides []string, dryRun b
 			}
 		}
 	}
-
-	return client.Run(chartRequested, vals)
+	rel, err := client.Run(chartRequested, vals)
+	rel.Manifest = strings.TrimPrefix(crdYaml+"\n"+rel.Manifest, "\n")
+	return rel, err
 }
 
 func (h *Helm) parseOverrides(overrides []string) (map[string]interface{}, error) {

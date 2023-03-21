@@ -20,15 +20,14 @@ package dao
 
 import (
 	"context"
-	"strings"
-	"time"
-
 	gormbulkups "github.com/atcdot/gorm-bulk-upsert"
 	ctxutil "github.com/goodrain/rainbond/api/util/ctx"
 	"github.com/goodrain/rainbond/db/model"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"strings"
+	"time"
 )
 
 //AddModel AddModel
@@ -66,6 +65,17 @@ type EventDaoImpl struct {
 
 // CreateEventsInBatch creates events in batch.
 func (c *EventDaoImpl) CreateEventsInBatch(events []*model.ServiceEvent) error {
+	dbType := c.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, event := range events {
+			event := event
+			if err := c.DB.Create(&event).Error; err != nil {
+				logrus.Error("batch create or update events error:", err)
+				return err
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, event := range events {
 		event := event
@@ -75,6 +85,11 @@ func (c *EventDaoImpl) CreateEventsInBatch(events []*model.ServiceEvent) error {
 		return errors.Wrap(err, "create events in batch")
 	}
 	return nil
+}
+
+//DeleteEvents delete event
+func (c *EventDaoImpl) DeleteEvents(eventIDs []string) error {
+	return c.DB.Where("event_id in (?)", eventIDs).Delete(&model.ServiceEvent{}).Error
 }
 
 // UpdateReason update reasion.
@@ -105,6 +120,16 @@ func (c *EventDaoImpl) GetEventByEventIDs(eventIDs []string) ([]*model.ServiceEv
 
 // UpdateInBatch -
 func (c *EventDaoImpl) UpdateInBatch(events []*model.ServiceEvent) error {
+	dbType := c.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, event := range events {
+			if err := c.DB.Model(&event).Where("ID = ?", event.ID).Update(event).Error; err != nil {
+				logrus.Error("batch Update or update events error:", err)
+				return err
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, event := range events {
 		event := event
@@ -178,6 +203,7 @@ func (c *EventDaoImpl) GetEventsByTarget(target, targetID string, offset, limit 
 
 // GetEventsByTenantID get event by tenantID
 func (c *EventDaoImpl) GetEventsByTenantID(tenantID string, offset, limit int) ([]*model.ServiceEvent, int, error) {
+
 	var total int
 	if err := c.DB.Model(&model.ServiceEvent{}).Where("tenant_id=?", tenantID).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -190,6 +216,24 @@ func (c *EventDaoImpl) GetEventsByTenantID(tenantID string, offset, limit int) (
 		return nil, 0, err
 	}
 	return result, total, nil
+}
+
+// GetEventsByTenantIDs get my teams all event by tenantIDs
+func (c *EventDaoImpl) GetEventsByTenantIDs(tenantIDs []string, offset, limit int) ([]*model.EventAndBuild, error) {
+	var EventAndBuild []*model.EventAndBuild
+	if err := c.DB.Raw("select a.create_time, a.tenant_id, a.target, a.target_id, a.user_name, a.start_time, a.end_time, a.opt_type, a.syn_type, a.status, a.final_status, a.message, a.reason "+
+		"build_version, kind, delivered_type, delivered_path, image_name, cmd, repo_url, code_version, code_branch, code_commit_msg, code_commit_author, plan_version "+
+		"from "+
+		"(select create_time, tenant_id, target, target_id, user_name, start_time, end_time, opt_type, syn_type, status, final_status, message, reason, event_id "+
+		"from tenant_services_event "+
+		"where target = 'service' "+
+		"and tenant_id in (?)) as a "+
+		"left join "+
+		"tenant_service_version "+
+		"on a.target_id = tenant_service_version.service_id and a.event_id = tenant_service_version.event_id", tenantIDs).Order("start_time DESC").Offset(offset).Limit(limit).Scan(&EventAndBuild).Error; err != nil {
+		return nil, err
+	}
+	return EventAndBuild, nil
 }
 
 //GetLastASyncEvent get last sync event

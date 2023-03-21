@@ -45,7 +45,6 @@ import (
 	gclient "github.com/goodrain/rainbond/mq/client"
 	"github.com/goodrain/rainbond/pkg/generated/clientset/versioned"
 	core_util "github.com/goodrain/rainbond/util"
-	typesv1 "github.com/goodrain/rainbond/worker/appm/types/v1"
 	"github.com/goodrain/rainbond/worker/client"
 	"github.com/goodrain/rainbond/worker/discover/model"
 	"github.com/goodrain/rainbond/worker/server"
@@ -1229,7 +1228,7 @@ func (s *ServiceAction) CreatePorts(tenantID, serviceID string, vps *api_model.S
 				tx.Rollback()
 				return err
 			}
-			if port != nil {
+			if port != nil && port.ServiceID != serviceID {
 				tx.Rollback()
 				return bcode.ErrK8sServiceNameExists
 			}
@@ -1319,9 +1318,7 @@ func (s *ServiceAction) PortVar(action, tenantID, serviceID string, vps *api_mod
 		}()
 		for _, vp := range vps.Port {
 			//port更新单个请求
-			if oldPort == 0 {
-				oldPort = vp.ContainerPort
-			}
+			oldPort = vp.ContainerPort
 			vpD, err := db.GetManager().TenantServicesPortDao().GetPort(serviceID, oldPort)
 			if err != nil {
 				tx.Rollback()
@@ -1334,7 +1331,7 @@ func (s *ServiceAction) PortVar(action, tenantID, serviceID string, vps *api_mod
 					tx.Rollback()
 					return err
 				}
-				if port != nil && vpD.K8sServiceName != vp.K8sServiceName {
+				if port != nil && vpD.K8sServiceName != vp.K8sServiceName && port.ServiceID != serviceID {
 					tx.Rollback()
 					return bcode.ErrK8sServiceNameExists
 				}
@@ -1349,7 +1346,7 @@ func (s *ServiceAction) PortVar(action, tenantID, serviceID string, vps *api_mod
 			vpD.Protocol = vp.Protocol
 			vpD.PortAlias = vp.PortAlias
 			vpD.K8sServiceName = vp.K8sServiceName
-			if err := db.GetManager().TenantServicesPortDaoTransactions(tx).UpdateModel(vpD); err != nil {
+			if err := db.GetManager().TenantServicesPortDao().UpdateModel(vpD); err != nil {
 				logrus.Errorf("update port var error, %v", err)
 				tx.Rollback()
 				return err
@@ -1372,7 +1369,7 @@ func (s *ServiceAction) PortVar(action, tenantID, serviceID string, vps *api_mod
 				}
 				if goon {
 					pluginPort.ContainerPort = vp.ContainerPort
-					if err := db.GetManager().TenantServicesStreamPluginPortDaoTransactions(tx).UpdateModel(pluginPort); err != nil {
+					if err := db.GetManager().TenantServicesStreamPluginPortDao().UpdateModel(pluginPort); err != nil {
 						logrus.Errorf("update plugin mapping port error:(%s)", err)
 						tx.Rollback()
 						return err
@@ -1985,8 +1982,8 @@ func (s *ServiceAction) GetServicesStatus(tenantID string, serviceIDs []string) 
 	return info
 }
 
-// GetEnterpriseRunningServices get running services
-func (s *ServiceAction) GetEnterpriseRunningServices(enterpriseID string) ([]string, *util.APIHandleError) {
+// GetEnterpriseServicesStatus get services
+func (s *ServiceAction) GetEnterpriseServicesStatus(enterpriseID string) (map[string]string, *util.APIHandleError) {
 	var tenantIDs []string
 	tenants, err := db.GetManager().EnterpriseDao().GetEnterpriseTenants(enterpriseID)
 	if err != nil {
@@ -2009,13 +2006,7 @@ func (s *ServiceAction) GetEnterpriseRunningServices(enterpriseID string) ([]str
 		serviceIDs = append(serviceIDs, svc.ServiceID)
 	}
 	statusList := s.statusCli.GetStatuss(strings.Join(serviceIDs, ","))
-	retServices := make([]string, 0, 10)
-	for service, status := range statusList {
-		if status == typesv1.RUNNING {
-			retServices = append(retServices, service)
-		}
-	}
-	return retServices, nil
+	return statusList, nil
 }
 
 //CreateTenant create tenant
@@ -2292,6 +2283,12 @@ func (s *ServiceAction) delServiceMetadata(ctx context.Context, serviceID string
 	if err != nil {
 		return err
 	}
+	if db.GetManager().DB().Dialect().GetName() == "sqlite3" {
+		if err := s.deleteThirdComponent(ctx, service); err != nil {
+			return err
+		}
+		return s.deleteComponent(db.GetManager().DB(), service)
+	}
 	logrus.Infof("delete service %s %s", serviceID, service.ServiceAlias)
 	return db.GetManager().DB().Transaction(func(tx *gorm.DB) error {
 		if err := s.deleteThirdComponent(ctx, service); err != nil {
@@ -2388,6 +2385,29 @@ func (s *ServiceAction) ListVersionInfo(serviceID string) (*api_model.BuildListR
 	result := &api_model.BuildListRespVO{
 		DeployVersion: svc.DeployVersion,
 		List:          bversions,
+	}
+	return result, nil
+}
+
+// EventBuildVersion -
+func (s *ServiceAction) EventBuildVersion(serviceID, buildVersion string) (*api_model.BuildListRespVO, error) {
+	versionInfo, err := db.GetManager().VersionInfoDao().GetVersionByDeployVersion(buildVersion, serviceID)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		logrus.Errorf("error getting all version by service id: %v", err)
+		return nil, fmt.Errorf("error getting all version by service id: %v", err)
+	}
+	b, err := json.Marshal(versionInfo)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling version infos: %v", err)
+	}
+	var bversion *api_model.BuildVersion
+	if err := json.Unmarshal(b, &bversion); err != nil {
+		return nil, fmt.Errorf("error unmarshaling version infos: %v", err)
+	}
+
+	result := &api_model.BuildListRespVO{
+		DeployVersion: buildVersion,
+		List:          bversion,
 	}
 	return result, nil
 }

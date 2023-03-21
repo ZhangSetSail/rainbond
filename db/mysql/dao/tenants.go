@@ -20,12 +20,12 @@ package dao
 
 import (
 	"fmt"
+	gormbulkups "github.com/atcdot/gorm-bulk-upsert"
 	"os"
 	"reflect"
 	"strconv"
 	"time"
 
-	gormbulkups "github.com/atcdot/gorm-bulk-upsert"
 	"github.com/goodrain/rainbond/api/util/bcode"
 	"github.com/goodrain/rainbond/db/dao"
 	"github.com/goodrain/rainbond/db/errors"
@@ -568,6 +568,23 @@ func (t *TenantServicesDaoImpl) BindAppByServiceIDs(appID string, serviceIDs []s
 
 // CreateOrUpdateComponentsInBatch Batch insert or update component
 func (t *TenantServicesDaoImpl) CreateOrUpdateComponentsInBatch(components []*model.TenantServices) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, component := range components {
+			if ok := t.DB.Where("ID=? ", component.ID).Find(&component).RecordNotFound(); !ok {
+				if err := t.DB.Model(&component).Where("ID = ?", component.ID).Update(component).Error; err != nil {
+					logrus.Error("batch Update or update spPort error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&component).Error; err != nil {
+					logrus.Error("batch create spPort error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, component := range components {
 		objects = append(objects, *component)
@@ -684,6 +701,23 @@ func (t *TenantServicesPortDaoImpl) UpdateModel(mo model.Interface) error {
 
 // CreateOrUpdatePortsInBatch Batch insert or update ports variables
 func (t *TenantServicesPortDaoImpl) CreateOrUpdatePortsInBatch(ports []*model.TenantServicesPort) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, port := range ports {
+			if ok := t.DB.Where("ID=? ", port.ID).Find(&port).RecordNotFound(); !ok {
+				if err := t.DB.Model(&port).Where("ID = ?", port.ID).Update(port).Error; err != nil {
+					logrus.Error("batch Update or update port error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&port).Error; err != nil {
+					logrus.Error("batch create port error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	// dedup
 	existPorts := make(map[string]struct{})
@@ -911,6 +945,23 @@ func (t *TenantServiceRelationDaoImpl) DeleteByComponentIDs(componentIDs []strin
 
 // CreateOrUpdateRelationsInBatch -
 func (t *TenantServiceRelationDaoImpl) CreateOrUpdateRelationsInBatch(relations []*model.TenantServiceRelation) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, relation := range relations {
+			if ok := t.DB.Where("ID=? ", relation.ID).Find(&relation).RecordNotFound(); !ok {
+				if err := t.DB.Model(&relation).Where("ID = ?", relation.ID).Update(relation).Error; err != nil {
+					logrus.Error("batch Update or update relation error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&relation).Error; err != nil {
+					logrus.Error("batch create relation error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, relation := range relations {
 		objects = append(objects, *relation)
@@ -1015,6 +1066,23 @@ func (t *TenantServiceEnvVarDaoImpl) DeleteByComponentIDs(componentIDs []string)
 
 // CreateOrUpdateEnvsInBatch Batch insert or update environment variables
 func (t *TenantServiceEnvVarDaoImpl) CreateOrUpdateEnvsInBatch(envs []*model.TenantServiceEnvVar) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, env := range envs {
+			if ok := t.DB.Where("ID=? ", env.ID).Find(&env).RecordNotFound(); !ok {
+				if err := t.DB.Model(&env).Where("ID = ?", env.ID).Update(env).Error; err != nil {
+					logrus.Error("batch Update or update env error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&env).Error; err != nil {
+					logrus.Error("batch create env error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	existEnvs := make(map[string]struct{})
 	for _, env := range envs {
@@ -1191,6 +1259,23 @@ func (t *TenantServiceMountRelationDaoImpl) DeleteByComponentIDs(componentIDs []
 
 // CreateOrUpdateVolumeRelsInBatch -
 func (t *TenantServiceMountRelationDaoImpl) CreateOrUpdateVolumeRelsInBatch(volRels []*model.TenantServiceMountRelation) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, volRel := range volRels {
+			if ok := t.DB.Where("ID=? ", volRel.ID).Find(&volRel).RecordNotFound(); !ok {
+				if err := t.DB.Model(&volRel).Where("ID = ?", volRel.ID).Update(volRel).Error; err != nil {
+					logrus.Error("batch Update or update env error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&volRel).Error; err != nil {
+					logrus.Error("batch create env error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, volRel := range volRels {
 		objects = append(objects, *volRel)
@@ -1277,6 +1362,23 @@ func (t *TenantServiceVolumeDaoImpl) DeleteByComponentIDs(componentIDs []string)
 
 // CreateOrUpdateVolumesInBatch -
 func (t *TenantServiceVolumeDaoImpl) CreateOrUpdateVolumesInBatch(volumes []*model.TenantServiceVolume) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, volume := range volumes {
+			if ok := t.DB.Where("ID=? ", volume.ID).Find(&volume).RecordNotFound(); !ok {
+				if err := t.DB.Model(&volume).Where("ID = ?", volume.ID).Update(volume).Error; err != nil {
+					logrus.Error("batch Update or update volume error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&volume).Error; err != nil {
+					logrus.Error("batch create volume error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, volume := range volumes {
 		objects = append(objects, *volume)
@@ -1422,6 +1524,23 @@ func (t *TenantServiceConfigFileDaoImpl) DeleteByComponentIDs(componentIDs []str
 
 // CreateOrUpdateConfigFilesInBatch -
 func (t *TenantServiceConfigFileDaoImpl) CreateOrUpdateConfigFilesInBatch(configFiles []*model.TenantServiceConfigFile) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, configFile := range configFiles {
+			if ok := t.DB.Where("ID=? ", configFile.ID).Find(&configFile).RecordNotFound(); !ok {
+				if err := t.DB.Model(&configFile).Where("ID = ?", configFile.ID).Update(configFile).Error; err != nil {
+					logrus.Error("batch Update or update configFile error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&configFile).Error; err != nil {
+					logrus.Error("batch create configFile error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, configFile := range configFiles {
 		objects = append(objects, *configFile)
@@ -1787,6 +1906,23 @@ func (t *ServiceLabelDaoImpl) DeleteByComponentIDs(componentIDs []string) error 
 
 // CreateOrUpdateLabelsInBatch -
 func (t *ServiceLabelDaoImpl) CreateOrUpdateLabelsInBatch(labels []*model.TenantServiceLable) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, label := range labels {
+			if ok := t.DB.Where("ID=? ", label.ID).Find(&label).RecordNotFound(); !ok {
+				if err := t.DB.Model(&label).Where("ID = ?", label.ID).Update(label).Error; err != nil {
+					logrus.Error("batch Update or update label error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&label).Error; err != nil {
+					logrus.Error("batch create label error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, label := range labels {
 		objects = append(objects, *label)
@@ -1868,6 +2004,23 @@ func (t *TenantServceAutoscalerRulesDaoImpl) DeleteByComponentIDs(componentIDs [
 
 // CreateOrUpdateScaleRulesInBatch -
 func (t *TenantServceAutoscalerRulesDaoImpl) CreateOrUpdateScaleRulesInBatch(rules []*model.TenantServiceAutoscalerRules) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, rule := range rules {
+			if ok := t.DB.Where("ID=? ", rule.ID).Find(&rule).RecordNotFound(); !ok {
+				if err := t.DB.Model(&rule).Where("ID = ?", rule.ID).Update(rule).Error; err != nil {
+					logrus.Error("batch Update or update rule error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&rule).Error; err != nil {
+					logrus.Error("batch create rule error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, rule := range rules {
 		objects = append(objects, *rule)
@@ -1948,6 +2101,23 @@ func (t *TenantServceAutoscalerRuleMetricsDaoImpl) DeleteByRuleIDs(ruleIDs []str
 
 // CreateOrUpdateScaleRuleMetricsInBatch -
 func (t *TenantServceAutoscalerRuleMetricsDaoImpl) CreateOrUpdateScaleRuleMetricsInBatch(metrics []*model.TenantServiceAutoscalerRuleMetrics) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, metric := range metrics {
+			if ok := t.DB.Where("ID=? ", metric.ID).Find(&metric).RecordNotFound(); !ok {
+				if err := t.DB.Model(&metric).Where("ID = ?", metric.ID).Update(metric).Error; err != nil {
+					logrus.Error("batch Update or update metric error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&metric).Error; err != nil {
+					logrus.Error("batch create metric error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, metric := range metrics {
 		objects = append(objects, *metric)
@@ -2052,6 +2222,23 @@ func (t *ComponentK8sAttributeDaoImpl) GetByComponentIDAndName(componentID, name
 
 // CreateOrUpdateAttributesInBatch Batch insert or update component attributes
 func (t *ComponentK8sAttributeDaoImpl) CreateOrUpdateAttributesInBatch(attributes []*model.ComponentK8sAttributes) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, attribute := range attributes {
+			if ok := t.DB.Where("ID=? ", attribute.ID).Find(&attribute).RecordNotFound(); !ok {
+				if err := t.DB.Model(&attribute).Where("ID = ?", attribute.ID).Update(attribute).Error; err != nil {
+					logrus.Error("batch Update or update attribute error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&attribute).Error; err != nil {
+					logrus.Error("batch create attribute error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, attribute := range attributes {
 		objects = append(objects, *attribute)

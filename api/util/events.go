@@ -82,15 +82,15 @@ func CreateEvent(target, optType, targetID, tenantID, reqBody, userName string, 
 		reqBody = reqBody[0:1024]
 	}
 	event := dbmodel.ServiceEvent{
-		EventID:     util.NewUUID(),
-		TenantID:    tenantID,
-		Target:      target,
-		TargetID:    targetID,
-		RequestBody: reqBody,
-		UserName:    userName,
-		StartTime:   time.Now().Format(time.RFC3339),
-		SynType:     synType,
-		OptType:     optType,
+		EventID:      util.NewUUID(),
+		TenantID:     tenantID,
+		Target:       target,
+		TargetID:     targetID,
+		RequestBody:  reqBody,
+		UserName:     userName,
+		StartTime:    time.Now().Format(time.RFC3339),
+		SynType:      synType,
+		OptType:      optType,
 	}
 	err := db.GetManager().ServiceEventDao().AddModel(&event)
 	return &event, err

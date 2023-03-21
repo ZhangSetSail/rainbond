@@ -6,6 +6,7 @@ import (
 	"github.com/goodrain/rainbond/db/model"
 	"github.com/jinzhu/gorm"
 	pkgerr "github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 //TenantServiceMonitorDaoImpl -
@@ -59,6 +60,23 @@ func (t *TenantServiceMonitorDaoImpl) DeleteByComponentIDs(componentIDs []string
 
 //CreateOrUpdateMonitorInBatch -
 func (t *TenantServiceMonitorDaoImpl) CreateOrUpdateMonitorInBatch(monitors []*model.TenantServiceMonitor) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, monitor := range monitors {
+			if ok := t.DB.Where("ID=?", monitor.ID).Find(&monitor).RecordNotFound(); !ok {
+				if err := t.DB.Model(&monitor).Where("ID = ?", monitor.ID).Update(monitor).Error; err != nil {
+					logrus.Error("batch Update or update monitor error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&monitor).Error; err != nil {
+					logrus.Error("batch create monitor error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, monitor := range monitors {
 		objects = append(objects, *monitor)

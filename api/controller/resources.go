@@ -51,6 +51,7 @@ import (
 //V2Routes v2Routes
 type V2Routes struct {
 	ClusterController
+	NodesController
 	TenantStruct
 	EventLogStruct
 	AppStruct
@@ -62,6 +63,7 @@ type V2Routes struct {
 	ApplicationController
 	RegistryAuthSecretStruct
 	K8sAttributeController
+	HelmStruct
 }
 
 //Show test

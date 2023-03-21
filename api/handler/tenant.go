@@ -21,6 +21,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/fields"
 	"sort"
 	"strings"
 	"time"
@@ -44,7 +45,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,7 +60,7 @@ type TenantAction struct {
 	cacheTime                 time.Time
 	prometheusCli             prometheus.Interface
 	k8sClient                 k8sclient.Client
-	resources                 map[string]runtime.Object
+	resources                 map[string]k8sclient.Object
 }
 
 //CreateTenManager create Manger
@@ -70,7 +70,7 @@ func CreateTenManager(mqc mqclient.MQClient, statusCli *client.AppRuntimeSyncCli
 	prometheusCli prometheus.Interface,
 	k8sClient k8sclient.Client) *TenantAction {
 
-	resources := map[string]runtime.Object{
+	resources := map[string]k8sclient.Object{
 		"helmApp": &v1alpha1.HelmApp{},
 		"service": &corev1.Service{},
 	}
@@ -124,7 +124,12 @@ func (t *TenantAction) BindTenantsResource(source []*dbmodel.Tenants) api_model.
 		}
 		list.Add(item)
 	}
-	sort.Sort(list)
+	sort.SliceStable(list, func(i, j int) bool {
+		if list[i].MemoryRequest > list[j].MemoryRequest {
+			return true
+		}
+		return false
+	})
 	return list
 }
 
@@ -399,12 +404,25 @@ func (t *TenantAction) GetTenantResource(tenantID string) (ts TenantResourceStat
 	return
 }
 
+// PodResourceInformation -
+type PodResourceInformation struct {
+	NodeName         string
+	ServiceID        string
+	AppID            string
+	Memory           int64
+	ResourceVersion  string
+	CPU              int64
+	StorageEphemeral int64
+}
+
 //ClusterResourceStats cluster resource stats
 type ClusterResourceStats struct {
 	AllCPU        int64
 	AllMemory     int64
 	RequestCPU    int64
 	RequestMemory int64
+	NodePods      []PodResourceInformation
+	AllPods       int64
 }
 
 func (t *TenantAction) initClusterResource(ctx context.Context) error {
@@ -415,15 +433,14 @@ func (t *TenantAction) initClusterResource(ctx context.Context) error {
 			logrus.Errorf("get cluster nodes failure %s", err.Error())
 			return err
 		}
-		for _, node := range nodes.Items {
+		usedNodeList := make([]v1.Node, len(nodes.Items))
+		for i, node := range nodes.Items {
 			// check if node contains taints
 			if containsTaints(&node) {
 				logrus.Debugf("[GetClusterInfo] node(%s) contains NoSchedule taints", node.GetName())
 				continue
 			}
-			if node.Spec.Unschedulable {
-				continue
-			}
+			usedNodeList[i] = node
 			for _, c := range node.Status.Conditions {
 				if c.Type == v1.NodeReady && c.Status != v1.ConditionTrue {
 					continue
@@ -432,6 +449,36 @@ func (t *TenantAction) initClusterResource(ctx context.Context) error {
 			crs.AllMemory += node.Status.Allocatable.Memory().Value() / (1024 * 1024)
 			crs.AllCPU += node.Status.Allocatable.Cpu().MilliValue()
 		}
+		var nodePodsList []PodResourceInformation
+		for i := range usedNodeList {
+			node := usedNodeList[i]
+			time.Sleep(50 * time.Microsecond)
+			podList, err := t.kubeClient.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+				FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": node.Name}).String()})
+			if err != nil {
+				logrus.Errorf("get node %v pods error:%v", node.Name, err)
+				continue
+			}
+			crs.AllPods += int64(len(podList.Items))
+			for _, pod := range podList.Items {
+				var nodePod PodResourceInformation
+				nodePod.NodeName = node.Name
+				if componentID, ok := pod.Labels["service_id"]; ok {
+					nodePod.ServiceID = componentID
+				}
+				if appID, ok := pod.Labels["app_id"]; ok {
+					nodePod.AppID = appID
+				}
+				nodePod.ResourceVersion = pod.ResourceVersion
+				for _, c := range pod.Spec.Containers {
+					nodePod.Memory += c.Resources.Requests.Memory().Value()
+					nodePod.CPU += c.Resources.Requests.Cpu().MilliValue()
+					nodePod.StorageEphemeral += c.Resources.Requests.StorageEphemeral().Value()
+				}
+				nodePodsList = append(nodePodsList, nodePod)
+			}
+		}
+		crs.NodePods = nodePodsList
 		t.cacheClusterResourceStats = &crs
 		t.cacheTime = time.Now()
 	}

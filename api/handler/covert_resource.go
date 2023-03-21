@@ -29,10 +29,10 @@ func (c *clusterAction) ConvertResource(ctx context.Context, namespace string, l
 func (c *clusterAction) workloadHandle(ctx context.Context, cr map[string]model.ApplicationResource, lr model.LabelResource, namespace string, label string) {
 	app := label
 	deployResource := c.workloadDeployments(lr.Workloads.Deployments, namespace)
-	sfsResource := c.workloadStateFulSets(lr.Workloads.StateFulSets, namespace)
+	stsResource := c.workloadStateFulSets(lr.Workloads.StateFulSets, namespace)
 	jobResource := c.workloadJobs(lr.Workloads.Jobs, namespace)
 	cjResource := c.workloadCronJobs(lr.Workloads.CronJobs, namespace)
-	convertResource := append(deployResource, append(sfsResource, append(jobResource, append(cjResource)...)...)...)
+	convertResource := append(deployResource, append(stsResource, append(jobResource, append(cjResource)...)...)...)
 	k8sResources := c.getAppKubernetesResources(ctx, lr.Others, namespace)
 	cr[app] = model.ApplicationResource{
 		ConvertResource:     convertResource,
@@ -48,13 +48,19 @@ func (c *clusterAction) workloadDeployments(dmNames []string, namespace string) 
 			logrus.Errorf("Failed to get Deployment %v:%v", dmName, err)
 			return nil
 		}
-
+		memory, cpu := resources.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().Value(), resources.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
+		if memory == 0 {
+			memory = resources.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value()
+		}
+		if cpu == 0 {
+			cpu = resources.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+		}
 		//BasicManagement
 		basic := model.BasicManagement{
 			ResourceType: model.Deployment,
 			Replicas:     resources.Spec.Replicas,
-			Memory:       resources.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024,
-			CPU:          resources.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().Value(),
+			Memory:       memory / 1024 / 1024,
+			CPU:          cpu,
 			Image:        resources.Spec.Template.Spec.Containers[0].Image,
 			Cmd:          strings.Join(append(resources.Spec.Template.Spec.Containers[0].Command, resources.Spec.Template.Spec.Containers[0].Args...), " "),
 		}
@@ -66,26 +72,32 @@ func (c *clusterAction) workloadDeployments(dmNames []string, namespace string) 
 			Name:         dmName,
 			RsLabel:      resources.Labels,
 		}
-		c.PodTemplateSpecResource(parameter)
+		c.PodTemplateSpecResource(parameter, nil)
 	}
 	return componentsCR
 }
 
-func (c *clusterAction) workloadStateFulSets(sfsNames []string, namespace string) []model.ConvertResource {
+func (c *clusterAction) workloadStateFulSets(stsNames []string, namespace string) []model.ConvertResource {
 	var componentsCR []model.ConvertResource
-	for _, sfsName := range sfsNames {
-		resources, err := c.clientset.AppsV1().StatefulSets(namespace).Get(context.Background(), sfsName, metav1.GetOptions{})
+	for _, stsName := range stsNames {
+		resources, err := c.clientset.AppsV1().StatefulSets(namespace).Get(context.Background(), stsName, metav1.GetOptions{})
 		if err != nil {
-			logrus.Errorf("Failed to get Deployment %v:%v", sfsName, err)
+			logrus.Errorf("Failed to get Deployment %v:%v", stsName, err)
 			return nil
 		}
-
+		memory, cpu := resources.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().Value(), resources.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
+		if memory == 0 {
+			memory = resources.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value()
+		}
+		if cpu == 0 {
+			cpu = resources.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+		}
 		//BasicManagement
 		basic := model.BasicManagement{
 			ResourceType: model.StateFulSet,
 			Replicas:     resources.Spec.Replicas,
-			Memory:       resources.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024,
-			CPU:          resources.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().Value(),
+			Memory:       memory / 1024 / 1024,
+			CPU:          cpu,
 			Image:        resources.Spec.Template.Spec.Containers[0].Image,
 			Cmd:          strings.Join(append(resources.Spec.Template.Spec.Containers[0].Command, resources.Spec.Template.Spec.Containers[0].Args...), " "),
 		}
@@ -94,10 +106,10 @@ func (c *clusterAction) workloadStateFulSets(sfsNames []string, namespace string
 			Basic:        basic,
 			Template:     resources.Spec.Template,
 			Namespace:    namespace,
-			Name:         sfsName,
+			Name:         stsName,
 			RsLabel:      resources.Labels,
 		}
-		c.PodTemplateSpecResource(parameter)
+		c.PodTemplateSpecResource(parameter, resources.Spec.VolumeClaimTemplates)
 	}
 	return componentsCR
 }
@@ -130,12 +142,19 @@ func (c *clusterAction) workloadJobs(jobNames []string, namespace string) []mode
 			ActiveDeadlineSeconds: ActiveDeadlineSeconds,
 			Completions:           Completions,
 		}
+		memory, cpu := resources.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().Value(), resources.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
+		if memory == 0 {
+			memory = resources.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value()
+		}
+		if cpu == 0 {
+			cpu = resources.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+		}
 		//BasicManagement
 		basic := model.BasicManagement{
 			ResourceType: model.Job,
 			Replicas:     resources.Spec.Completions,
-			Memory:       resources.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024,
-			CPU:          resources.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().Value(),
+			Memory:       memory / 1024 / 1024,
+			CPU:          cpu,
 			Image:        resources.Spec.Template.Spec.Containers[0].Image,
 			Cmd:          strings.Join(append(resources.Spec.Template.Spec.Containers[0].Command, resources.Spec.Template.Spec.Containers[0].Args...), " "),
 			JobStrategy:  job,
@@ -148,7 +167,7 @@ func (c *clusterAction) workloadJobs(jobNames []string, namespace string) []mode
 			Name:         jobName,
 			RsLabel:      resources.Labels,
 		}
-		c.PodTemplateSpecResource(parameter)
+		c.PodTemplateSpecResource(parameter, nil)
 	}
 	return componentsCR
 }
@@ -181,12 +200,19 @@ func (c *clusterAction) workloadCronJobs(cjNames []string, namespace string) []m
 			ActiveDeadlineSeconds: ActiveDeadlineSeconds,
 			Completions:           Completions,
 		}
+		memory, cpu := resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().Value(), resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
+		if memory == 0 {
+			memory = resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value()
+		}
+		if cpu == 0 {
+			cpu = resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+		}
 		//BasicManagement
 		basic := model.BasicManagement{
 			ResourceType: model.CronJob,
 			Replicas:     resources.Spec.JobTemplate.Spec.Completions,
-			Memory:       resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value() / 1024 / 1024,
-			CPU:          resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().Value(),
+			Memory:       memory / 1024 / 1024,
+			CPU:          cpu,
 			Image:        resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image,
 			Cmd:          strings.Join(append(resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command, resources.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Args...), " "),
 			JobStrategy:  job,
@@ -199,7 +225,7 @@ func (c *clusterAction) workloadCronJobs(cjNames []string, namespace string) []m
 			Name:         cjName,
 			RsLabel:      resources.Labels,
 		}
-		c.PodTemplateSpecResource(parameter)
+		c.PodTemplateSpecResource(parameter, nil)
 	}
 	return componentsCR
 }

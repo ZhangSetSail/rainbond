@@ -78,21 +78,21 @@ var EventStatusFailure EventStatus = "failure"
 //ServiceEvent event struct
 type ServiceEvent struct {
 	Model
-	EventID     string `gorm:"column:event_id;size:40"`
-	TenantID    string `gorm:"column:tenant_id;size:40;index:tenant_id"`
-	ServiceID   string `gorm:"column:service_id;size:40;index:service_id"`
-	Target      string `gorm:"column:target;size:40"`
-	TargetID    string `gorm:"column:target_id;size:255;index:target_id"`
-	RequestBody string `gorm:"column:request_body;size:1024"`
-	UserName    string `gorm:"column:user_name;size:40"`
-	StartTime   string `gorm:"column:start_time;size:40"`
-	EndTime     string `gorm:"column:end_time;size:40"`
-	OptType     string `gorm:"column:opt_type;size:40"`
-	SynType     int    `gorm:"column:syn_type;size:1"`
-	Status      string `gorm:"column:status;size:40"`
-	FinalStatus string `gorm:"column:final_status;size:40"`
-	Message     string `gorm:"column:message"`
-	Reason      string `gorm:"column:reason"`
+	EventID      string `gorm:"column:event_id;size:40;index:event_id"`
+	TenantID     string `gorm:"column:tenant_id;size:40;index:tenant_id"`
+	ServiceID    string `gorm:"column:service_id;size:40;index:service_id"`
+	Target       string `gorm:"column:target;size:40"`
+	TargetID     string `gorm:"column:target_id;size:255;index:target_id"`
+	RequestBody  string `gorm:"column:request_body;size:1024"`
+	UserName     string `gorm:"column:user_name;size:40"`
+	StartTime    string `gorm:"column:start_time;size:40"`
+	EndTime      string `gorm:"column:end_time;size:40"`
+	OptType      string `gorm:"column:opt_type;size:40"`
+	SynType      int    `gorm:"column:syn_type;size:1"`
+	Status       string `gorm:"column:status;size:40"`
+	FinalStatus  string `gorm:"column:final_status;size:40"`
+	Message      string `gorm:"column:message"`
+	Reason       string `gorm:"column:reason"`
 }
 
 //TableName 表名
@@ -124,4 +124,33 @@ type NotificationEvent struct {
 //TableName table name
 func (n *NotificationEvent) TableName() string {
 	return "region_notification_event"
+}
+
+// EventAndBuild -
+type EventAndBuild struct {
+	CreateTime       string `json:"create_time" `
+	TenantID         string `json:"tenant_id"`
+	Target           string `json:"target"`
+	TargetID         string `json:"target_id"`
+	UserName         string `json:"user_name"`
+	StartTime        string `json:"start_time"`
+	EndTime          string `json:"end_time"`
+	OptType          string `json:"opt_type"`
+	SynType          string `json:"syn_type"`
+	Status           string `json:"status"`
+	FinalStatus      string `json:"final_status"`
+	Message          string `json:"message"`
+	Reason           string `json:"reason"`
+	BuildVersion     string `json:"build_version"`
+	Kind             string `json:"kind"`
+	DeliveredType    string `json:"delivered_type"`
+	DeliveredPath    string `json:"delivered_path"`
+	ImageName        string `json:"image_name"`
+	Cmd              string `json:"cmd"`
+	RepoURL          string `json:"repo_url"`
+	CodeVersion      string `json:"code_version"`
+	CodeBranch       string `json:"code_branch"`
+	CodeCommitMsg    string `json:"code_commit_msg"`
+	CodeCommitAuthor string `json:"code_commit_author"`
+	PlanVersion      string `json:"plan_version"`
 }

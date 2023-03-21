@@ -385,6 +385,7 @@ type TenantServicesPort struct {
 	IsInnerService *bool  `gorm:"column:is_inner_service" validate:"is_inner_service|bool" json:"is_inner_service"`
 	IsOuterService *bool  `gorm:"column:is_outer_service" validate:"is_outer_service|bool" json:"is_outer_service"`
 	K8sServiceName string `gorm:"column:k8s_service_name" json:"k8s_service_name"`
+	Name           string `gorm:"name" json:"name"`
 }
 
 // Key returns the key of TenantServicesPort.
@@ -517,7 +518,7 @@ type TenantServiceVolume struct {
 	//存储名称
 	VolumeName string `gorm:"column:volume_name;size:40" json:"volume_name"`
 	//主机地址
-	HostPath string `gorm:"column:host_path" json:"host_path"`
+	HostPath string `gorm:"column:host_path;type:text" json:"host_path"`
 	//挂载地址
 	VolumePath string `gorm:"column:volume_path" json:"volume_path"`
 	//是否只读
@@ -553,7 +554,7 @@ func (t *TenantServiceVolume) Key() string {
 type TenantServiceConfigFile struct {
 	Model
 	ServiceID   string `gorm:"column:service_id;size:32" json:"service_id"`
-	VolumeName  string `gorm:"column:volume_name;size:32" json:"volume_name"`
+	VolumeName  string `gorm:"column:volume_name;size:128" json:"volume_name"`
 	FileContent string `gorm:"column:file_content;size:65535" json:"filename"`
 }
 
@@ -603,7 +604,7 @@ type TenantServiceProbe struct {
 	Scheme    string `gorm:"column:scheme;default:'scheme'" json:"scheme" validate:"scheme"`
 	Path      string `gorm:"column:path" json:"path" validate:"path"`
 	Port      int    `gorm:"column:port;size:5;default:80" json:"port" validate:"port|required|numeric_between:1,65535"`
-	Cmd       string `gorm:"column:cmd;size:150" json:"cmd" validate:"cmd"`
+	Cmd       string `gorm:"column:cmd;type:longtext;" json:"cmd" validate:"cmd"`
 	//http请求头，key=value,key2=value2
 	HTTPHeader string `gorm:"column:http_header;size:300" json:"http_header" validate:"http_header"`
 	//初始化等候时间

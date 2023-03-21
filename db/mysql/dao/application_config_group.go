@@ -6,6 +6,7 @@ import (
 	"github.com/goodrain/rainbond/db/model"
 	"github.com/jinzhu/gorm"
 	pkgerr "github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // AppConfigGroupDaoImpl -
@@ -79,6 +80,23 @@ func (a *AppConfigGroupDaoImpl) DeleteByAppID(appID string) error {
 
 // CreateOrUpdateConfigGroupsInBatch -
 func (a *AppConfigGroupDaoImpl) CreateOrUpdateConfigGroupsInBatch(cgroups []*model.ApplicationConfigGroup) error {
+	dbType := a.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, cgroup := range cgroups {
+			if ok := a.DB.Where("ID=? ", cgroup.ID).Find(&cgroup).RecordNotFound(); !ok {
+				if err := a.DB.Model(&cgroup).Where("ID = ?", cgroup.ID).Update(cgroup).Error; err != nil {
+					logrus.Error("batch Update or update cgroup error:", err)
+					return err
+				}
+			} else {
+				if err := a.DB.Create(&cgroup).Error; err != nil {
+					logrus.Error("batch create cgroup error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, cg := range cgroups {
 		objects = append(objects, *cg)
@@ -143,6 +161,23 @@ func (a *AppConfigGroupServiceDaoImpl) DeleteByAppID(appID string) error {
 
 // CreateOrUpdateConfigGroupServicesInBatch -
 func (a *AppConfigGroupServiceDaoImpl) CreateOrUpdateConfigGroupServicesInBatch(cgservices []*model.ConfigGroupService) error {
+	dbType := a.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, cgservice := range cgservices {
+			if ok := a.DB.Where("ID=? ", cgservice.ID).Find(&cgservice).RecordNotFound(); !ok {
+				if err := a.DB.Model(&cgservice).Where("ID = ?", cgservice.ID).Update(cgservice).Error; err != nil {
+					logrus.Error("batch Update or update cgservice error:", err)
+					return err
+				}
+			} else {
+				if err := a.DB.Create(&cgservice).Error; err != nil {
+					logrus.Error("batch create cgservice error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, cgs := range cgservices {
 		objects = append(objects, *cgs)
@@ -210,6 +245,23 @@ func (a *AppConfigGroupItemDaoImpl) DeleteByAppID(appID string) error {
 
 // CreateOrUpdateConfigGroupItemsInBatch -
 func (a *AppConfigGroupItemDaoImpl) CreateOrUpdateConfigGroupItemsInBatch(cgitems []*model.ConfigGroupItem) error {
+	dbType := a.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, cgitem := range cgitems {
+			if ok := a.DB.Where("ID=? ", cgitem.ID).Find(&cgitem).RecordNotFound(); !ok {
+				if err := a.DB.Model(&cgitem).Where("ID = ?", cgitem.ID).Update(cgitem).Error; err != nil {
+					logrus.Error("batch Update or update cgitem error:", err)
+					return err
+				}
+			} else {
+				if err := a.DB.Create(&cgitem).Error; err != nil {
+					logrus.Error("batch create cgitem error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, cgi := range cgitems {
 		objects = append(objects, *cgi)

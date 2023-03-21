@@ -19,12 +19,12 @@
 package controller
 
 import (
-	"github.com/goodrain/rainbond/api/model"
-	"net/http"
-
 	"github.com/go-chi/chi"
 	"github.com/goodrain/rainbond/api/handler"
+	"github.com/goodrain/rainbond/api/model"
 	"github.com/sirupsen/logrus"
+	"net/http"
+	"strconv"
 
 	httputil "github.com/goodrain/rainbond/util/http"
 )
@@ -34,7 +34,7 @@ type ClusterController struct {
 }
 
 // GetClusterInfo -
-func (t *ClusterController) GetClusterInfo(w http.ResponseWriter, r *http.Request) {
+func (c *ClusterController) GetClusterInfo(w http.ResponseWriter, r *http.Request) {
 	nodes, err := handler.GetClusterHandler().GetClusterInfo(r.Context())
 	if err != nil {
 		logrus.Errorf("get cluster info: %v", err)
@@ -45,13 +45,13 @@ func (t *ClusterController) GetClusterInfo(w http.ResponseWriter, r *http.Reques
 	httputil.ReturnSuccess(r, w, nodes)
 }
 
-//MavenSettingList maven setting list
-func (t *ClusterController) MavenSettingList(w http.ResponseWriter, r *http.Request) {
+// MavenSettingList maven setting list
+func (c *ClusterController) MavenSettingList(w http.ResponseWriter, r *http.Request) {
 	httputil.ReturnSuccess(r, w, handler.GetClusterHandler().MavenSettingList(r.Context()))
 }
 
-//MavenSettingAdd maven setting add
-func (t *ClusterController) MavenSettingAdd(w http.ResponseWriter, r *http.Request) {
+// MavenSettingAdd maven setting add
+func (c *ClusterController) MavenSettingAdd(w http.ResponseWriter, r *http.Request) {
 	var set handler.MavenSetting
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &set, nil); !ok {
 		return
@@ -63,8 +63,8 @@ func (t *ClusterController) MavenSettingAdd(w http.ResponseWriter, r *http.Reque
 	httputil.ReturnSuccess(r, w, &set)
 }
 
-//MavenSettingUpdate maven setting file update
-func (t *ClusterController) MavenSettingUpdate(w http.ResponseWriter, r *http.Request) {
+// MavenSettingUpdate maven setting file update
+func (c *ClusterController) MavenSettingUpdate(w http.ResponseWriter, r *http.Request) {
 	type SettingUpdate struct {
 		Content string `json:"content" validate:"required"`
 	}
@@ -83,8 +83,8 @@ func (t *ClusterController) MavenSettingUpdate(w http.ResponseWriter, r *http.Re
 	httputil.ReturnSuccess(r, w, set)
 }
 
-//MavenSettingDelete maven setting file delete
-func (t *ClusterController) MavenSettingDelete(w http.ResponseWriter, r *http.Request) {
+// MavenSettingDelete maven setting file delete
+func (c *ClusterController) MavenSettingDelete(w http.ResponseWriter, r *http.Request) {
 	err := handler.GetClusterHandler().MavenSettingDelete(r.Context(), chi.URLParam(r, "name"))
 	if err != nil {
 		err.Handle(r, w)
@@ -93,18 +93,18 @@ func (t *ClusterController) MavenSettingDelete(w http.ResponseWriter, r *http.Re
 	httputil.ReturnSuccess(r, w, nil)
 }
 
-//MavenSettingDetail maven setting file delete
-func (t *ClusterController) MavenSettingDetail(w http.ResponseWriter, r *http.Request) {
-	c, err := handler.GetClusterHandler().MavenSettingDetail(r.Context(), chi.URLParam(r, "name"))
+// MavenSettingDetail maven setting file delete
+func (c *ClusterController) MavenSettingDetail(w http.ResponseWriter, r *http.Request) {
+	setting, err := handler.GetClusterHandler().MavenSettingDetail(r.Context(), chi.URLParam(r, "name"))
 	if err != nil {
 		err.Handle(r, w)
 		return
 	}
-	httputil.ReturnSuccess(r, w, c)
+	httputil.ReturnSuccess(r, w, setting)
 }
 
-//GetNamespace Get the unconnected namespaces under the current cluster
-func (t *ClusterController) GetNamespace(w http.ResponseWriter, r *http.Request) {
+// GetNamespace Get the unconnected namespaces under the current cluster
+func (c *ClusterController) GetNamespace(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 	ns, err := handler.GetClusterHandler().GetNamespace(r.Context(), content)
 	if err != nil {
@@ -114,8 +114,8 @@ func (t *ClusterController) GetNamespace(w http.ResponseWriter, r *http.Request)
 	httputil.ReturnSuccess(r, w, ns)
 }
 
-//GetNamespaceResource Get all resources in the current namespace
-func (t *ClusterController) GetNamespaceResource(w http.ResponseWriter, r *http.Request) {
+// GetNamespaceResource Get all resources in the current namespace
+func (c *ClusterController) GetNamespaceResource(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 	namespace := r.FormValue("namespace")
 	rs, err := handler.GetClusterHandler().GetNamespaceSource(r.Context(), content, namespace)
@@ -126,8 +126,8 @@ func (t *ClusterController) GetNamespaceResource(w http.ResponseWriter, r *http.
 	httputil.ReturnSuccess(r, w, rs)
 }
 
-//ConvertResource Get the resources under the current namespace to the rainbond platform
-func (t *ClusterController) ConvertResource(w http.ResponseWriter, r *http.Request) {
+// ConvertResource Get the resources under the current namespace to the rainbond platform
+func (c *ClusterController) ConvertResource(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 	namespace := r.FormValue("namespace")
 	rs, err := handler.GetClusterHandler().GetNamespaceSource(r.Context(), content, namespace)
@@ -143,8 +143,8 @@ func (t *ClusterController) ConvertResource(w http.ResponseWriter, r *http.Reque
 	httputil.ReturnSuccess(r, w, appsServices)
 }
 
-//ResourceImport Import the converted k8s resources into recognition
-func (t *ClusterController) ResourceImport(w http.ResponseWriter, r *http.Request) {
+// ResourceImport Import the converted k8s resources into recognition
+func (c *ClusterController) ResourceImport(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 	namespace := r.FormValue("namespace")
 	eid := r.FormValue("eid")
@@ -166,8 +166,22 @@ func (t *ClusterController) ResourceImport(w http.ResponseWriter, r *http.Reques
 	httputil.ReturnSuccess(r, w, rri)
 }
 
-//AddResource -
-func (t *ClusterController) AddResource(w http.ResponseWriter, r *http.Request) {
+// GetResource -
+func (c *ClusterController) GetResource(w http.ResponseWriter, r *http.Request) {
+	var hr model.HandleResource
+	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &hr, nil); !ok {
+		return
+	}
+	rri, err := handler.GetClusterHandler().GetAppK8SResource(r.Context(), hr.Namespace, hr.AppID, hr.Name, hr.ResourceYaml, hr.Kind)
+	if err != nil {
+		err.Handle(r, w)
+		return
+	}
+	httputil.ReturnSuccess(r, w, rri)
+}
+
+// AddResource -
+func (c *ClusterController) AddResource(w http.ResponseWriter, r *http.Request) {
 	var hr model.AddHandleResource
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &hr, nil); !ok {
 		return
@@ -180,8 +194,8 @@ func (t *ClusterController) AddResource(w http.ResponseWriter, r *http.Request) 
 	httputil.ReturnSuccess(r, w, rri)
 }
 
-//UpdateResource -
-func (t *ClusterController) UpdateResource(w http.ResponseWriter, r *http.Request) {
+// UpdateResource -
+func (c *ClusterController) UpdateResource(w http.ResponseWriter, r *http.Request) {
 	var hr model.HandleResource
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &hr, nil); !ok {
 		return
@@ -194,8 +208,8 @@ func (t *ClusterController) UpdateResource(w http.ResponseWriter, r *http.Reques
 	httputil.ReturnSuccess(r, w, rri)
 }
 
-//DeleteResource -
-func (t *ClusterController) DeleteResource(w http.ResponseWriter, r *http.Request) {
+// DeleteResource -
+func (c *ClusterController) DeleteResource(w http.ResponseWriter, r *http.Request) {
 	var hr model.HandleResource
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &hr, nil); !ok {
 		return
@@ -209,7 +223,7 @@ func (t *ClusterController) DeleteResource(w http.ResponseWriter, r *http.Reques
 }
 
 // SyncResource -
-func (t *ClusterController) SyncResource(w http.ResponseWriter, r *http.Request) {
+func (c *ClusterController) SyncResource(w http.ResponseWriter, r *http.Request) {
 	var req model.SyncResources
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &req, nil); !ok {
 		return
@@ -222,8 +236,8 @@ func (t *ClusterController) SyncResource(w http.ResponseWriter, r *http.Request)
 	httputil.ReturnSuccess(r, w, resources)
 }
 
-//YamlResourceName -
-func (t *ClusterController) YamlResourceName(w http.ResponseWriter, r *http.Request) {
+// YamlResourceName -
+func (c *ClusterController) YamlResourceName(w http.ResponseWriter, r *http.Request) {
 	var yr model.YamlResource
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &yr, nil); !ok {
 		return
@@ -236,8 +250,8 @@ func (t *ClusterController) YamlResourceName(w http.ResponseWriter, r *http.Requ
 	httputil.ReturnSuccess(r, w, h)
 }
 
-//YamlResourceDetailed -
-func (t *ClusterController) YamlResourceDetailed(w http.ResponseWriter, r *http.Request) {
+// YamlResourceDetailed -
+func (c *ClusterController) YamlResourceDetailed(w http.ResponseWriter, r *http.Request) {
 	var yr model.YamlResource
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &yr, nil); !ok {
 		return
@@ -250,8 +264,8 @@ func (t *ClusterController) YamlResourceDetailed(w http.ResponseWriter, r *http.
 	httputil.ReturnSuccess(r, w, h)
 }
 
-//YamlResourceImport -
-func (t *ClusterController) YamlResourceImport(w http.ResponseWriter, r *http.Request) {
+// YamlResourceImport -
+func (c *ClusterController) YamlResourceImport(w http.ResponseWriter, r *http.Request) {
 	var yr model.YamlResource
 	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &yr, nil); !ok {
 		return
@@ -267,4 +281,121 @@ func (t *ClusterController) YamlResourceImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 	httputil.ReturnSuccess(r, w, ac)
+}
+
+// CreateShellPod -
+func (c *ClusterController) CreateShellPod(w http.ResponseWriter, r *http.Request) {
+	var sp model.ShellPod
+	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &sp, nil); !ok {
+		return
+	}
+	pod, err := handler.GetClusterHandler().CreateShellPod(sp.RegionName)
+	if err != nil {
+		logrus.Error("create shell pod error:", err)
+		return
+	}
+	httputil.ReturnSuccess(r, w, pod)
+}
+
+// DeleteShellPod -
+func (c *ClusterController) DeleteShellPod(w http.ResponseWriter, r *http.Request) {
+	var sp model.ShellPod
+	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &sp, nil); !ok {
+		return
+	}
+	err := handler.GetClusterHandler().DeleteShellPod(sp.PodName)
+	if err != nil {
+		logrus.Error("delete shell pod error:", err)
+		return
+	}
+	httputil.ReturnSuccess(r, w, "")
+}
+
+// RbdLog -
+func (c *ClusterController) RbdLog(w http.ResponseWriter, r *http.Request) {
+	podName := r.URL.Query().Get("pod_name")
+	follow, _ := strconv.ParseBool(r.URL.Query().Get("follow"))
+	err := handler.GetClusterHandler().RbdLog(w, r, podName, follow)
+
+	if err != nil {
+		httputil.ReturnBcodeError(r, w, err)
+		return
+	}
+	return
+}
+
+// GetRbdPods -
+func (c *ClusterController) GetRbdPods(w http.ResponseWriter, r *http.Request) {
+	res, err := handler.GetClusterHandler().GetRbdPods()
+	if err != nil {
+		httputil.ReturnBcodeError(r, w, err)
+		return
+	}
+	httputil.ReturnSuccess(r, w, res)
+}
+
+// ListRainbondComponents -
+func (c *ClusterController) ListRainbondComponents(w http.ResponseWriter, r *http.Request) {
+	components, err := handler.GetClusterHandler().ListRainbondComponents(r.Context())
+	if err != nil {
+		logrus.Errorf("get rainbond components error: %v", err)
+		httputil.ReturnError(r, w, 500, err.Error())
+		return
+	}
+	httputil.ReturnSuccess(r, w, components)
+}
+
+// ListPlugins -
+func (c *ClusterController) ListPlugins(w http.ResponseWriter, r *http.Request) {
+	official, _ := strconv.ParseBool(r.URL.Query().Get("official"))
+	res, err := handler.GetClusterHandler().ListPlugins(official)
+	if err != nil {
+		httputil.ReturnBcodeError(r, w, err)
+		return
+	}
+	httputil.ReturnSuccess(r, w, res)
+}
+
+// ListAbilities -
+func (c *ClusterController) ListAbilities(w http.ResponseWriter, r *http.Request) {
+	res, err := handler.GetClusterHandler().ListAbilities()
+	if err != nil {
+		httputil.ReturnError(r, w, 400, err.Error())
+		return
+	}
+	var abilities []model.AbilityResp
+	for _, ability := range res {
+		abilities = append(abilities, model.AbilityResp{
+			Name:       ability.GetName(),
+			Kind:       ability.GetKind(),
+			APIVersion: ability.GetAPIVersion(),
+			AbilityID:  handler.GetClusterHandler().GenerateAbilityID(&ability),
+		})
+	}
+	httputil.ReturnSuccess(r, w, abilities)
+}
+
+// GetAbility -
+func (c *ClusterController) GetAbility(w http.ResponseWriter, r *http.Request) {
+	abilityID := chi.URLParam(r, "ability_id")
+	res, err := handler.GetClusterHandler().GetAbility(abilityID)
+	if err != nil {
+		httputil.ReturnError(r, w, 400, err.Error())
+		return
+	}
+	httputil.ReturnSuccess(r, w, res)
+}
+
+// UpdateAbility -
+func (c *ClusterController) UpdateAbility(w http.ResponseWriter, r *http.Request) {
+	abilityID := chi.URLParam(r, "ability_id")
+	var req model.UpdateAbilityReq
+	if ok := httputil.ValidatorRequestStructAndErrorResponse(r, w, &req, nil); !ok {
+		return
+	}
+	if err := handler.GetClusterHandler().UpdateAbility(abilityID, req.Object); err != nil {
+		httputil.ReturnError(r, w, 400, err.Error())
+		return
+	}
+	httputil.ReturnSuccess(r, w, nil)
 }

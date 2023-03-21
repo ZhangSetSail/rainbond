@@ -61,6 +61,14 @@ func (l *LogAction) GetEvents(target, targetID string, page, size int) ([]*dbmod
 	return db.GetManager().ServiceEventDao().GetEventsByTarget(target, targetID, (page-1)*size, size)
 }
 
+// GetMyTeamsEvents get my team events
+func (l *LogAction) GetMyTeamsEvents(target string, tenantIDs []string, page, size int) ([]*dbmodel.EventAndBuild, error) {
+	if target == "tenant" {
+		return db.GetManager().ServiceEventDao().GetEventsByTenantIDs(tenantIDs, (page-1)*size, size)
+	}
+	return nil, nil
+}
+
 //GetLogList get log list
 func (l *LogAction) GetLogList(serviceAlias string) ([]*model.HistoryLogFile, error) {
 	logDIR := path.Join(constants.GrdataLogPath, serviceAlias)
@@ -101,6 +109,7 @@ func (l *LogAction) GetLogInstance(serviceID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if len(value.Kvs) > 0 {
 		return string(value.Kvs[0].Value), nil
 	}

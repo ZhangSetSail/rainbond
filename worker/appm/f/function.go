@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/goodrain/rainbond/gateway/annotations/parser"
+	"github.com/goodrain/rainbond/util/apply"
 	v1 "github.com/goodrain/rainbond/worker/appm/types/v1"
-	"github.com/oam-dev/kubevela/pkg/utils/apply"
 	monitorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	"github.com/sirupsen/logrus"
@@ -191,7 +191,12 @@ func ensureService(new *corev1.Service, clientSet kubernetes.Interface) error {
 		return err
 	}
 	updateService := old.DeepCopy()
+	var clusterIP string
+	if updateService.Spec.ClusterIP != "" {
+		clusterIP = updateService.Spec.ClusterIP
+	}
 	updateService.Spec = new.Spec
+	updateService.Spec.ClusterIP = clusterIP
 	updateService.Labels = new.Labels
 	updateService.Annotations = new.Annotations
 	return persistUpdate(updateService, clientSet)
@@ -200,7 +205,7 @@ func ensureService(new *corev1.Service, clientSet kubernetes.Interface) error {
 func persistUpdate(service *corev1.Service, clientSet kubernetes.Interface) error {
 	var err error
 	for i := 0; i < clientRetryCount; i++ {
-		_, err = clientSet.CoreV1().Services(service.Namespace).UpdateStatus(context.Background(), service, metav1.UpdateOptions{})
+		_, err = clientSet.CoreV1().Services(service.Namespace).Update(context.Background(), service, metav1.UpdateOptions{})
 		if err == nil {
 			return nil
 		}

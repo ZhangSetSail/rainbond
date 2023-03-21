@@ -15,21 +15,39 @@ import (
 	"strings"
 )
 
-func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourceParameter) {
+func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourceParameter, volumeClaimTemplate []corev1.PersistentVolumeClaim) {
+	logrus.Infof("into function PodTemplateSpecResource")
 	//Port
 	var ps []model.PortManagement
+	NameAndPort := make(map[string]int32)
+	var po int32
 	for _, port := range parameter.Template.Spec.Containers[0].Ports {
-		if string(port.Protocol) == "UDP" {
+		NameAndPort[port.Name] = port.ContainerPort
+		switch string(port.Protocol) {
+		case "UDP", "udp":
+			po = port.ContainerPort
 			ps = append(ps, model.PortManagement{
+				Name:     port.Name,
 				Port:     port.ContainerPort,
-				Protocol: "UDP",
+				Protocol: "udp",
 				Inner:    false,
 				Outer:    false,
 			})
-		} else {
+		case "HTTP", "http":
+			po = port.ContainerPort
 			ps = append(ps, model.PortManagement{
+				Name:     port.Name,
 				Port:     port.ContainerPort,
-				Protocol: "TCP",
+				Protocol: "http",
+				Inner:    false,
+				Outer:    false,
+			})
+		default:
+			po = port.ContainerPort
+			ps = append(ps, model.PortManagement{
+				Name:     port.Name,
+				Port:     port.ContainerPort,
+				Protocol: "tcp",
 				Inner:    false,
 				Outer:    false,
 			})
@@ -64,92 +82,116 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 	if err != nil {
 		logrus.Errorf("Failed to get ConfigMap%v", err)
 	}
+	cmList.Items = append(cmList.Items, parameter.CMs...)
 	for _, cm := range cmList.Items {
 		cmMap[cm.Name] = cm
 	}
-	cmList.Items = append(cmList.Items, parameter.CMs...)
+	var volumeAttributes []corev1.Volume
+	volumeMountAttributes := parameter.Template.Spec.Containers[0].VolumeMounts
 	for _, volume := range parameter.Template.Spec.Volumes {
 		if volume.ConfigMap != nil && err == nil {
 			cm, _ := cmMap[volume.ConfigMap.Name]
 			cmData := cm.Data
 			isLog := true
-			var index int
-			for i, volumeMount := range parameter.Template.Spec.Containers[0].VolumeMounts {
+			for i, volumeMount := range volumeMountAttributes {
 				if volume.Name != volumeMount.Name {
 					continue
 				}
+				volumeMountAttributes = append(volumeMountAttributes[:i], volumeMountAttributes[i+1:]...)
+				if len(volumeMountAttributes) == 0 {
+					volumeMountAttributes = nil
+				}
 				isLog = false
-				index = i
 				if volume.ConfigMap.Items != nil {
 					if volumeMount.SubPath != "" {
 						configName := ""
-						var mode int32
+						var itemMode int32
 						for _, item := range volume.ConfigMap.Items {
 							if item.Path == volumeMount.SubPath {
 								configName = item.Key
-								mode = *item.Mode
+								if item.Mode != nil {
+									itemMode = *item.Mode
+								}
+								break
 							}
+						}
+						mode8 := strconv.FormatInt(int64(itemMode), 8)
+						mode, err := strconv.ParseInt(mode8, 10, 32)
+						if err != nil || mode == 0 {
+							mode = 755
 						}
 						configs = append(configs, model.ConfigManagement{
 							ConfigName:  configName,
 							ConfigPath:  volumeMount.MountPath,
 							ConfigValue: cmData[configName],
-							Mode:        mode,
+							Mode:        int32(mode),
 						})
-						continue
-					}
-					p := volumeMount.MountPath
-					for _, item := range volume.ConfigMap.Items {
-						p := path.Join(p, item.Path)
-						var mode int32
-						if item.Mode != nil {
-							mode = *item.Mode
+					} else {
+						p := volumeMount.MountPath
+						for _, item := range volume.ConfigMap.Items {
+							p := path.Join(p, item.Path)
+							var itemMode int32
+							if item.Mode != nil {
+								itemMode = *item.Mode
+							}
+							mode8 := strconv.FormatInt(int64(itemMode), 8)
+							mode, err := strconv.ParseInt(mode8, 10, 32)
+							if err != nil || mode == 0 {
+								mode = 755
+							}
+							configs = append(configs, model.ConfigManagement{
+								ConfigName:  item.Key,
+								ConfigPath:  p,
+								ConfigValue: cmData[item.Key],
+								Mode:        int32(mode),
+							})
 						}
-						configs = append(configs, model.ConfigManagement{
-							ConfigName:  item.Key,
-							ConfigPath:  p,
-							ConfigValue: cmData[item.Key],
-							Mode:        mode,
-						})
 					}
 				} else {
-					mode := int32(777)
+					var mode10 int32
 					if volume.ConfigMap.DefaultMode != nil {
-						mode = *volume.ConfigMap.DefaultMode
+						mode10 = *volume.ConfigMap.DefaultMode
+					}
+					mode8 := strconv.FormatInt(int64(mode10), 8)
+					mode, err := strconv.ParseInt(mode8, 10, 32)
+					if err != nil || mode == 0 {
+						mode = 755
 					}
 					if volumeMount.SubPath != "" {
 						configs = append(configs, model.ConfigManagement{
 							ConfigName:  volumeMount.SubPath,
 							ConfigPath:  volumeMount.MountPath,
 							ConfigValue: cmData[volumeMount.SubPath],
-							Mode:        mode,
+							Mode:        int32(mode),
 						})
-						continue
-					}
-					mountPath := volumeMount.MountPath
-					for key, val := range cmData {
-						mountPath = path.Join(mountPath, key)
-						configs = append(configs, model.ConfigManagement{
-							ConfigName:  key,
-							ConfigPath:  mountPath,
-							ConfigValue: val,
-							Mode:        *volume.ConfigMap.DefaultMode,
-						})
+					} else {
+						mountPath := volumeMount.MountPath
+						for key, val := range cmData {
+							volumeMountPath := path.Join(mountPath, key)
+							configs = append(configs, model.ConfigManagement{
+								ConfigName:  key,
+								ConfigPath:  volumeMountPath,
+								ConfigValue: val,
+								Mode:        int32(mode),
+							})
+						}
 					}
 				}
+				break
 			}
 			if isLog {
+				volumeAttributes = append(volumeAttributes, volume)
 				logrus.Warningf("configmap type resource %v is not mounted in volumemount", volume.ConfigMap.Name)
-				continue
 			}
-			parameter.Template.Spec.Containers[0].VolumeMounts = append(parameter.Template.Spec.Containers[0].VolumeMounts[:index], parameter.Template.Spec.Containers[0].VolumeMounts[index+1:]...)
+			continue
 		}
+		volumeAttributes = append(volumeAttributes, volume)
 	}
 
 	//TelescopicManagement
 	HPAList, err := c.clientset.AutoscalingV1().HorizontalPodAutoscalers(parameter.Namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		logrus.Errorf("Failed to get HorizontalPodAutoscalers list:%v", err)
+		logrus.Errorf("failed to get HorizontalPodAutoscalers list:%v", err)
 	}
 	HPAList.Items = append(HPAList.Items, parameter.HPAs...)
 	var t model.TelescopicManagement
@@ -240,8 +282,20 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 				httpHeaders = append(httpHeaders, nv)
 			}
 			hcm.DetectionMethod = strings.ToLower(string(livenessProbe.HTTPGet.Scheme))
+			if hcm.DetectionMethod == "" {
+				hcm.DetectionMethod = "tcp"
+				if len(httpHeaders) > 0 {
+					hcm.DetectionMethod = "http"
+				}
+			}
 			hcm.Path = livenessProbe.HTTPGet.Path
 			hcm.Port = int(livenessProbe.HTTPGet.Port.IntVal)
+			if hcm.Port == 0 {
+				hcm.Port = int(NameAndPort[livenessProbe.HTTPGet.Port.StrVal])
+			}
+		}
+		if hcm.Port == 0 {
+			hcm.Port = int(po)
 		}
 		hcm.Status = 1
 		if livenessProbe.Exec != nil {
@@ -264,8 +318,23 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 					httpHeaders = append(httpHeaders, nv)
 				}
 				hcm.DetectionMethod = strings.ToLower(string(readinessProbe.HTTPGet.Scheme))
+				if hcm.DetectionMethod == "" {
+					hcm.DetectionMethod = "tcp"
+					if len(httpHeaders) > 0 {
+						hcm.DetectionMethod = "http"
+					}
+				}
 				hcm.Path = readinessProbe.HTTPGet.Path
 				hcm.Port = int(readinessProbe.HTTPGet.Port.IntVal)
+				if hcm.Port == 0 {
+					hcm.Port = int(NameAndPort[livenessProbe.HTTPGet.Port.StrVal])
+				}
+				if hcm.Port == 0 {
+					hcm.Port = int(po)
+				}
+			}
+			if hcm.Port == 0 {
+				hcm.Port = int(po)
 			}
 			hcm.Status = 1
 			hcm.Mode = "readiness"
@@ -285,7 +354,7 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 	if parameter.Template.Spec.Containers[0].Env != nil && len(parameter.Template.Spec.Containers[0].Env) > 0 {
 		envYaml, err := ObjectToJSONORYaml("yaml", parameter.Template.Spec.Containers[0].Env)
 		if err != nil {
-			logrus.Errorf("deployment:%v env %v", parameter.Name, err)
+			logrus.Errorf("pod %v template env transformation yaml failure: %v", parameter.Name, err)
 		}
 		envAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameENV,
@@ -294,10 +363,10 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 		}
 		attributes = append(attributes, envAttributes)
 	}
-	if parameter.Template.Spec.Volumes != nil {
-		volumesYaml, err := ObjectToJSONORYaml("yaml", parameter.Template.Spec.Volumes)
+	if volumeAttributes != nil {
+		volumesYaml, err := ObjectToJSONORYaml("yaml", volumeAttributes)
 		if err != nil {
-			logrus.Errorf("deployment:%v volumes %v", parameter.Name, err)
+			logrus.Errorf("pod %v template volume transformation yaml failure: %v", parameter.Name, err)
 		}
 		volumesAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameVolumes,
@@ -307,10 +376,10 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 		attributes = append(attributes, volumesAttributes)
 
 	}
-	if parameter.Template.Spec.Containers[0].VolumeMounts != nil {
-		volumeMountsYaml, err := ObjectToJSONORYaml("yaml", parameter.Template.Spec.Containers[0].VolumeMounts)
+	if volumeMountAttributes != nil {
+		volumeMountsYaml, err := ObjectToJSONORYaml("yaml", volumeMountAttributes)
 		if err != nil {
-			logrus.Errorf("deployment:%v volumeMounts %v", parameter.Name, err)
+			logrus.Errorf("pod %v template volumemount transformation yaml failure: %v", parameter.Name, err)
 		}
 		volumeMountsAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameVolumeMounts,
@@ -327,10 +396,10 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 		}
 		attributes = append(attributes, serviceAccountAttributes)
 	}
-	if parameter.RsLabel != nil {
-		labelsJSON, err := ObjectToJSONORYaml("json", parameter.RsLabel)
+	if parameter.Template.Labels != nil {
+		labelsJSON, err := ObjectToJSONORYaml("json", parameter.Template.Labels)
 		if err != nil {
-			logrus.Errorf("deployment:%v labels %v", parameter.Name, err)
+			logrus.Errorf("pod %v template label transformation json failure: %v", parameter.Name, err)
 		}
 		labelsAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameLabels,
@@ -343,7 +412,7 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 	if parameter.Template.Spec.NodeSelector != nil {
 		NodeSelectorJSON, err := ObjectToJSONORYaml("json", parameter.Template.Spec.NodeSelector)
 		if err != nil {
-			logrus.Errorf("deployment:%v nodeSelector %v", parameter.Name, err)
+			logrus.Errorf("pod %v template nodeselector transformation json failure: %v", parameter.Name, err)
 		}
 		nodeSelectorAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameNodeSelector,
@@ -352,10 +421,37 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 		}
 		attributes = append(attributes, nodeSelectorAttributes)
 	}
+	if volumeClaimTemplate != nil {
+		volumeClaimTemplateYaml, err := ObjectToJSONORYaml("yaml", volumeClaimTemplate)
+		if err != nil {
+			logrus.Errorf("pod %v template volumeClaimTemplate transformation yaml failure: %v", parameter.Name, err)
+		}
+		vctAttributes := &dbmodel.ComponentK8sAttributes{
+			Name:           dbmodel.K8sAttributeNameVolumeClaimTemplate,
+			SaveType:       "yaml",
+			AttributeValue: volumeClaimTemplateYaml,
+		}
+		attributes = append(attributes, vctAttributes)
+	}
+
+	if parameter.Template.Spec.Containers[0].EnvFrom != nil {
+		envFromYaml, err := ObjectToJSONORYaml("yaml", parameter.Template.Spec.Containers[0].EnvFrom)
+		if err != nil {
+			logrus.Errorf("pod %v template envFrom transformation yaml failure: %v", parameter.Name, err)
+		} else {
+			envFromAttributes := &dbmodel.ComponentK8sAttributes{
+				Name:           dbmodel.K8sAttributeNameENVFromSource,
+				SaveType:       "yaml",
+				AttributeValue: envFromYaml,
+			}
+			attributes = append(attributes, envFromAttributes)
+		}
+	}
+
 	if parameter.Template.Spec.Tolerations != nil {
 		tolerationsYaml, err := ObjectToJSONORYaml("yaml", parameter.Template.Spec.Tolerations)
 		if err != nil {
-			logrus.Errorf("deployment:%v tolerations %v", parameter.Name, err)
+			logrus.Errorf("pod %v template Tolerations transformation yaml failure: %v", parameter.Name, err)
 		}
 		tolerationsAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameTolerations,
@@ -367,7 +463,7 @@ func (c *clusterAction) PodTemplateSpecResource(parameter model.YamlResourcePara
 	if parameter.Template.Spec.Affinity != nil {
 		affinityYaml, err := ObjectToJSONORYaml("yaml", parameter.Template.Spec.Affinity)
 		if err != nil {
-			logrus.Errorf("deployment:%v affinity %v", parameter.Name, err)
+			logrus.Errorf("pod %v template Affinity transformation yaml failure: %v", parameter.Name, err)
 		}
 		affinityAttributes := &dbmodel.ComponentK8sAttributes{
 			Name:           dbmodel.K8sAttributeNameAffinity,

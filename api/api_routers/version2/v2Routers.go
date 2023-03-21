@@ -26,12 +26,12 @@ import (
 	dbmodel "github.com/goodrain/rainbond/db/model"
 )
 
-//V2 v2
+// V2 v2
 type V2 struct {
 	Cfg *option.Config
 }
 
-//Routes routes
+// Routes routes
 func (v2 *V2) Routes() chi.Router {
 	r := chi.NewRouter()
 	license := middleware.NewLicense(v2.Cfg)
@@ -62,6 +62,15 @@ func (v2 *V2) Routes() chi.Router {
 	r.Put("/volume-options/{volume_type}", controller.UpdateVolumeType)
 	r.Mount("/enterprise/{enterprise_id}", v2.enterpriseRouter())
 	r.Mount("/monitor", v2.monitorRouter())
+	r.Mount("/helm", v2.helmRouter())
+	return r
+}
+
+func (v2 *V2) helmRouter() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/check_helm_app", controller.GetManager().CheckHelmApp)
+	r.Get("/command_helm", controller.GetManager().CommandHelm)
+	r.Get("/get_chart_information", controller.GetManager().GetChartInformation)
 	return r
 }
 
@@ -74,6 +83,7 @@ func (v2 *V2) monitorRouter() chi.Router {
 func (v2 *V2) enterpriseRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/running-services", controller.GetRunningServices)
+	r.Get("/abnormal_status", controller.GetAbnormalStatus)
 	return r
 }
 
@@ -81,6 +91,8 @@ func (v2 *V2) eventsRouter() chi.Router {
 	r := chi.NewRouter()
 	// get target's event list with page
 	r.Get("/", controller.GetManager().Events)
+	// get my teams event list with page
+	r.Get("/myteam", controller.GetManager().MyTeamsEvents)
 	// get target's event content
 	r.Get("/{eventID}/log", controller.GetManager().EventLog)
 	return r
@@ -98,6 +110,7 @@ func (v2 *V2) clusterRouter() chi.Router {
 	r.Get("/resource", controller.GetManager().GetNamespaceResource)
 	r.Get("/convert-resource", controller.GetManager().ConvertResource)
 	r.Post("/convert-resource", controller.GetManager().ResourceImport)
+	r.Get("/k8s-resource", controller.GetManager().GetResource)
 	r.Post("/k8s-resource", controller.GetManager().AddResource)
 	r.Delete("/k8s-resource", controller.GetManager().DeleteResource)
 	r.Put("/k8s-resource", controller.GetManager().UpdateResource)
@@ -105,6 +118,31 @@ func (v2 *V2) clusterRouter() chi.Router {
 	r.Get("/yaml_resource_name", controller.GetManager().YamlResourceName)
 	r.Get("/yaml_resource_detailed", controller.GetManager().YamlResourceDetailed)
 	r.Post("/yaml_resource_import", controller.GetManager().YamlResourceImport)
+	r.Get("/rbd-resource/log", controller.GetManager().RbdLog)
+	r.Get("/rbd-resource/pods", controller.GetManager().GetRbdPods)
+	r.Get("/rbd-name/{serviceID}/logs", controller.GetManager().HistoryRbdLogs)
+	r.Get("/log-file", controller.GetManager().LogList)
+	r.Post("/shell-pod", controller.GetManager().CreateShellPod)
+	r.Delete("/shell-pod", controller.GetManager().DeleteShellPod)
+	r.Get("/plugins", controller.GetManager().ListPlugins)
+	r.Get("/abilities", controller.GetManager().ListAbilities)
+	r.Get("/abilities/{ability_id}", controller.GetManager().GetAbility)
+	r.Put("/abilities/{ability_id}", controller.GetManager().UpdateAbility)
+	r.Get("/governance-mode", controller.GetManager().ListGovernanceMode)
+	r.Get("/rbd-components", controller.GetManager().ListRainbondComponents)
+	r.Mount("/nodes", v2.nodesRouter())
+	return r
+}
+
+func (v2 *V2) nodesRouter() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/", controller.GetManager().ListNodes)
+	r.Get("/{node_name}/detail", controller.GetManager().GetNode)
+	r.Post("/{node_name}/action/{action}", controller.GetManager().NodeAction)
+	r.Get("/{node_name}/labels", controller.GetManager().ListLabels)
+	r.Put("/{node_name}/labels", controller.GetManager().UpdateLabels)
+	r.Get("/{node_name}/taints", controller.GetManager().ListTaints)
+	r.Put("/{node_name}/taints", controller.GetManager().UpdateTaints)
 	return r
 }
 
@@ -154,6 +192,7 @@ func (v2 *V2) tenantNameRouter() chi.Router {
 	r.Post("/apps", controller.GetManager().CreateApp)
 	r.Post("/batch_create_apps", controller.GetManager().BatchCreateApp)
 	r.Get("/apps", controller.GetManager().ListApps)
+	r.Delete("/k8s-app/{k8s_app}", controller.GetManager().DeleteK8sApp)
 	r.Post("/checkResourceName", controller.GetManager().CheckResourceName)
 	r.Get("/appstatuses", controller.GetManager().ListAppStatuses)
 	r.Mount("/apps/{app_id}", v2.applicationRouter())
@@ -336,6 +375,9 @@ func (v2 *V2) applicationRouter() chi.Router {
 	r.Use(middleware.InitApplication)
 	// app governance mode
 	r.Get("/governance/check", controller.GetManager().CheckGovernanceMode)
+	r.Post("/governance-cr", controller.GetManager().CreateGovernanceModeCR)
+	r.Put("/governance-cr", controller.GetManager().UpdateGovernanceModeCR)
+	r.Delete("/governance-cr", controller.GetManager().DeleteGovernanceModeCR)
 	// Operation application
 	r.Put("/", controller.GetManager().UpdateApp)
 	r.Delete("/", controller.GetManager().DeleteApp)

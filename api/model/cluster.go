@@ -27,6 +27,9 @@ type ClusterResource struct {
 	CapDisk                          uint64        `json:"cap_disk"`
 	ReqDisk                          uint64        `json:"req_disk"`
 	MaxAllocatableMemoryNodeResource *NodeResource `json:"max_allocatable_memory_node_resource"`
+	ResourceProxyStatus              bool          `json:"resource_proxy_status"`
+	K8sVersion                       string        `json:"k8s_version"`
+	NodeReady                        int32         `json:"node_ready"`
 }
 
 // NodeResource is a collection of compute resource.

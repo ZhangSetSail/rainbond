@@ -19,15 +19,18 @@
 package mysql
 
 import (
+	"os"
 	"sync"
 
 	"github.com/goodrain/rainbond/db/config"
 	"github.com/goodrain/rainbond/db/model"
 	"github.com/jinzhu/gorm"
+	//import sqlite
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/sirupsen/logrus"
-
 	// import sql driver manually
 	_ "github.com/go-sql-driver/mysql"
+	// import postgres
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
@@ -56,6 +59,22 @@ func CreateManager(config config.Config) (*Manager, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if config.DBType == "sqlite" {
+		_, err := os.Stat("/db")
+		if err != nil {
+			if !os.IsExist(err) {
+				err := os.MkdirAll("/db", 0777)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		db, err = gorm.Open("sqlite3", "/db/region.sqlite3")
+		if err != nil {
+			return nil, err
+		}
+		db.Exec("PRAGMA journal_mode = WAL")
 	}
 	if config.ShowSQL {
 		db = db.Debug()
@@ -171,12 +190,21 @@ func (m *Manager) CheckTable() {
 					} else {
 						logrus.Infof("auto create table %s to db success", md.TableName())
 					}
-				} else { //cockroachdb
+				}
+				if m.config.DBType == "cockroachdb" { //cockroachdb
 					err := m.db.CreateTable(md).Error
 					if err != nil {
 						logrus.Errorf("auto create cockroachdb table %s to db error."+err.Error(), md.TableName())
 					} else {
 						logrus.Infof("auto create cockroachdb table %s to db success", md.TableName())
+					}
+				}
+				if m.config.DBType == "sqlite" {
+					err := m.db.CreateTable(md).Error
+					if err != nil {
+						logrus.Errorf("auto create sqlite table %s to db error."+err.Error(), md.TableName())
+					} else {
+						logrus.Infof("auto create sqlite table %s to db success", md.TableName())
 					}
 				}
 			} else {
@@ -190,6 +218,9 @@ func (m *Manager) CheckTable() {
 }
 
 func (m *Manager) patchTable() {
+	if m.config.DBType == "sqlite" {
+		return
+	}
 	if err := m.db.Exec("alter table tenant_services_envs modify column attr_value text;").Error; err != nil {
 		logrus.Errorf("alter table tenant_services_envs error %s", err.Error())
 	}
@@ -212,5 +243,15 @@ func (m *Manager) patchTable() {
 	}
 	if err := m.db.Exec("update tenant_services set k8s_component_name=service_alias where k8s_component_name is NULL;").Error; err != nil {
 		logrus.Errorf("update tenants namespace error: %s", err.Error())
+	}
+	if err := m.db.Exec("alter  table tenant_services_probe modify column cmd longtext;").Error; err != nil {
+		logrus.Errorf("alter table tenant_services_probe error: %s", err.Error())
+	}
+	if err := m.db.Exec("alter  table app_config_group_item modify column item_value longtext;").Error; err != nil {
+		logrus.Errorf("alter table app_config_group_item error: %s", err.Error())
+	}
+
+	if err := m.db.Exec("alter table applications modify column governance_mode varchar(255) DEFAULT 'KUBERNETES_NATIVE_SERVICE';").Error; err != nil {
+		logrus.Errorf("alter table applications error: %s", err.Error())
 	}
 }

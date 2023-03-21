@@ -22,6 +22,7 @@ import (
 	"fmt"
 	gormbulkups "github.com/atcdot/gorm-bulk-upsert"
 	pkgerr "github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 
 	"github.com/goodrain/rainbond/db/model"
 
@@ -122,6 +123,23 @@ func (t *ServiceProbeDaoImpl) DeleteByComponentIDs(componentIDs []string) error 
 
 // CreateOrUpdateProbesInBatch -
 func (t *ServiceProbeDaoImpl) CreateOrUpdateProbesInBatch(probes []*model.TenantServiceProbe) error {
+	dbType := t.DB.Dialect().GetName()
+	if dbType == "sqlite3" {
+		for _, probe := range probes {
+			if ok := t.DB.Where("ID=? ", probe.ID).Find(&probe).RecordNotFound(); !ok {
+				if err := t.DB.Model(&probe).Where("ID = ?", probe.ID).Update(probe).Error; err != nil {
+					logrus.Error("batch Update or update probe error:", err)
+					return err
+				}
+			} else {
+				if err := t.DB.Create(&probe).Error; err != nil {
+					logrus.Error("batch create probe error:", err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	var objects []interface{}
 	for _, probe := range probes {
 		objects = append(objects, *probe)
