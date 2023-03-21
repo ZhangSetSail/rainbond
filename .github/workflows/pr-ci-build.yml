@@ -14,10 +14,9 @@ jobs:
         uses: actions/setup-go@v2.1.3
         with:
           # The Go version to download (if necessary) and use. Supports semver spec and ranges.
-          go-version: 1.18
+          go-version: 1.17
       - name: install-golint
-        run: go get -u golang.org/x/lint/golint && export PATH=$PATH:$(go env GOPATH)/bin
-
+        run: go get -u golang.org/x/lint/golint
       - name: Go-linter
         run: ./check.sh
 
