@@ -87,9 +87,9 @@ func (s *slugBuild) Build(re *Request) (*Response, error) {
 	//After 5.1.5 version, wrap slug pacage in the runner image
 	imageName, err := s.buildRunnerImage(packageName)
 	if err != nil {
-		re.Logger.Error(util.Translation("Build runner image failure"),
+		re.Logger.Error(util.Translation("Build runner image failure")+err.Error(),
 			map[string]string{"step": "build-code", "status": "failure"})
-		return nil, fmt.Errorf("build runner image failure")
+		return nil, fmt.Errorf("build runner image failure%v", err)
 	}
 	re.Logger.Info(util.Translation("build runtime image success"), map[string]string{"step": "build-code", "status": "success"})
 	res := &Response{
