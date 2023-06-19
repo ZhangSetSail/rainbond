@@ -365,7 +365,9 @@ func (s *slugBuild) runBuildJob(re *Request) error {
 	}
 	podSpec := corev1.PodSpec{
 		RestartPolicy: corev1.RestartPolicyOnFailure,
-		Affinity: &corev1.Affinity{
+	} // only support never and onfailure
+	if re.Arch != "" {
+		podSpec.Affinity = &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
@@ -380,9 +382,8 @@ func (s *slugBuild) runBuildJob(re *Request) error {
 					},
 				},
 			},
-		},
+		}
 	}
-	// only support never and onfailure
 	// schedule builder
 	if re.CacheMode == "hostpath" {
 		logrus.Debugf("builder cache mode using hostpath, schedule job into current node")

@@ -422,7 +422,9 @@ func ImageBuild(arch, contextDir, cachePVCName, cacheMode, RbdNamespace, Service
 	}
 	podSpec := corev1.PodSpec{
 		RestartPolicy: corev1.RestartPolicyOnFailure,
-		Affinity: &corev1.Affinity{
+	} // only support never and onfailure
+	if arch != "" {
+		podSpec.Affinity = &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
@@ -437,9 +439,9 @@ func ImageBuild(arch, contextDir, cachePVCName, cacheMode, RbdNamespace, Service
 					},
 				},
 			},
-		},
+		}
 	}
-	// only support never and onfailure
+
 	volumes, volumeMounts := CreateVolumesAndMounts(contextDir, buildType, cacheMode, cachePVCName)
 	podSpec.Volumes = volumes
 	// container config
