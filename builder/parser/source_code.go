@@ -128,7 +128,7 @@ func (d *SourceCodeParse) Parse() ParseErrorList {
 			}
 		}
 		csi.RepositoryURL = buildInfo.RepostoryURL
-		rs, _, err := sources.GitClone(csi, buildInfo.GetCodeHome(), d.logger, 5)
+		rs, _, err := sources.GitClone(csi, buildInfo.GetCodeHome(), d.logger, 300)
 		if err != nil {
 			if err == transport.ErrAuthenticationRequired || err == transport.ErrAuthorizationFailed {
 				if buildInfo.GetProtocol() == "ssh" {
