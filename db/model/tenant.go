@@ -264,6 +264,8 @@ type TenantServices struct {
 	K8sComponentName string `gorm:"column:k8s_component_name" json:"k8s_component_name"`
 	// Job任务策略
 	JobStrategy string `gorm:"column:job_strategy" json:"job_strategy"`
+	// 组件状态
+	ComponentStatus bool `gorm:"column:component_status" json:"component_status"`
 }
 
 // ComponentWorkload -
@@ -387,6 +389,8 @@ type TenantServicesDelete struct {
 	K8sComponentName string `gorm:"column:k8s_component_name" json:"k8s_component_name"`
 	// Job任务策略
 	JobStrategy string `gorm:"column:job_strategy" json:"job_strategy"`
+	// 组件状态
+	ComponentStatus bool `gorm:"column:component_status" json:"component_status"`
 }
 
 // TableName 表名

@@ -32,6 +32,7 @@ import (
 	"github.com/goodrain/rainbond/api/handler"
 	"github.com/goodrain/rainbond/api/model"
 	api_model "github.com/goodrain/rainbond/api/model"
+	apimodel "github.com/goodrain/rainbond/api/model"
 	"github.com/goodrain/rainbond/api/util/bcode"
 	ctxutil "github.com/goodrain/rainbond/api/util/ctx"
 	"github.com/goodrain/rainbond/cmd"
@@ -2048,4 +2049,40 @@ func (t *TenantStruct) CheckResourceName(w http.ResponseWriter, r *http.Request)
 	}
 
 	httputil.ReturnSuccess(r, w, res)
+}
+
+func (t *TenantStruct) TenantStartService(w http.ResponseWriter, r *http.Request) {
+	tenantID := r.Context().Value(ctxutil.ContextKey("tenant_id")).(string)
+	services, err := db.GetManager().TenantServiceDao().GetStartServicesAllInfoByTenantID(tenantID)
+	if err != nil {
+		httputil.ReturnBcodeError(r, w, err)
+		return
+	}
+	tenant, err := db.GetManager().TenantDao().GetTenantByUUID(tenantID)
+	if err != nil {
+		httputil.ReturnBcodeError(r, w, err)
+		return
+	}
+	for _, service := range services {
+		if service.Kind != "third_party" {
+			if err := handler.CheckTenantResource(r.Context(), tenant, service.Replicas*service.ContainerMemory); err != nil {
+				break
+			}
+		}
+
+		startStopStruct := &apimodel.StartStopStruct{
+			TenantID:  tenantID,
+			ServiceID: service.ServiceID,
+			EventID:   "",
+			TaskType:  "start",
+		}
+		if err := handler.GetServiceManager().StartStopService(startStopStruct); err != nil {
+			break
+		}
+	}
+	if err != nil {
+		httputil.ReturnBcodeError(r, w, err)
+		return
+	}
+	httputil.ReturnSuccess(r, w, "")
 }

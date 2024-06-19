@@ -164,6 +164,8 @@ type TenantServiceDao interface {
 	CreateOrUpdateComponentsInBatch(components []*model.TenantServices) error
 	DeleteByComponentIDs(tenantID, appID string, componentIDs []string) error
 	IsK8sComponentNameDuplicate(appID, serviceID, k8sComponentName string) bool
+	GetStartServicesAllInfoByTenantID(tenantID string) ([]*model.TenantServices, error)
+	UpdateComponentStatusModel(serviceID string, status bool) error
 }
 
 // TenantServiceDeleteDao TenantServiceDeleteDao

@@ -193,6 +193,7 @@ func (v2 *V2) tenantNameRouter() chi.Router {
 	r.Get("/servicecheck/{uuid}", controller.GetServiceCheckInfo)
 	r.Get("/resources", controller.GetManager().SingleTenantResources)
 	r.Get("/services", controller.GetManager().ServicesInfo)
+	r.Post("/start", controller.GetManager().TenantStartService)
 	//创建应用
 	r.Post("/services", middleware.WrapEL(controller.GetManager().CreateService, dbmodel.TargetTypeService, "create-service", dbmodel.SYNEVENTTYPE))
 	r.Post("/plugin", controller.GetManager().PluginAction)
