@@ -42,7 +42,7 @@ func main() {
 
 	configs.SetDefault(&configs.Config{
 		AppName:  "rbd-mq",
-		MQConfig: s.Config,
+		MQConfig: s.MQConfig,
 	})
 	err := rainbond.New(context.Background(), configs.Default()).
 		Registry(component.MQClient()).

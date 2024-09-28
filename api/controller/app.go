@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"github.com/goodrain/rainbond/pkg/component/storage"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -21,10 +22,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//AppStruct -
+// AppStruct -
 type AppStruct struct{}
 
-//ExportApp -
+// ExportApp -
 func (a *AppStruct) ExportApp(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
@@ -72,7 +73,7 @@ func (a *AppStruct) ExportApp(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Download -
+// Download -
 func (a *AppStruct) Download(w http.ResponseWriter, r *http.Request) {
 	format := strings.TrimSpace(chi.URLParam(r, "format"))
 	fileName := strings.TrimSpace(chi.URLParam(r, "fileName"))
@@ -83,11 +84,10 @@ func (a *AppStruct) Download(w http.ResponseWriter, r *http.Request) {
 		httputil.ReturnError(r, w, 404, fmt.Sprintf("Not found export app tar file: %s", tarFile))
 		return
 	}
-
-	http.ServeFile(w, r, tarFile)
+	storage.Default().StorageCli.ServeFile(w, r, tarFile)
 }
 
-//ImportID -
+// ImportID -
 func (a *AppStruct) ImportID(w http.ResponseWriter, r *http.Request) {
 	eventID := strings.TrimSpace(chi.URLParam(r, "eventID"))
 	if eventID == "" {
@@ -156,7 +156,7 @@ func (a *AppStruct) ImportID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//UploadID -
+// UploadID -
 func (a *AppStruct) UploadID(w http.ResponseWriter, r *http.Request) {
 	eventID := strings.TrimSpace(chi.URLParam(r, "eventID"))
 	if eventID == "" {
@@ -220,7 +220,7 @@ func (a *AppStruct) UploadID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//NewUpload -
+// NewUpload -
 func (a *AppStruct) NewUpload(w http.ResponseWriter, r *http.Request) {
 	eventID := strings.TrimSpace(chi.URLParam(r, "eventID"))
 	switch r.Method {
@@ -245,7 +245,7 @@ func (a *AppStruct) NewUpload(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Upload -
+// Upload -
 func (a *AppStruct) Upload(w http.ResponseWriter, r *http.Request) {
 	eventID := strings.TrimSpace(chi.URLParam(r, "eventID"))
 	switch r.Method {
@@ -300,7 +300,7 @@ func (a *AppStruct) Upload(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//ImportApp -
+// ImportApp -
 func (a *AppStruct) ImportApp(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":

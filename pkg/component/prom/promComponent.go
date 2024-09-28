@@ -28,19 +28,24 @@ var defaultPromComponent *Component
 
 // Component -
 type Component struct {
-	PrometheusCli prometheus.Interface
+	PrometheusCli    prometheus.Interface
+	PrometheusConfig *configs.PrometheusConfig
+	ServerConfig     *configs.ServerConfig
 }
 
 // New -
 func New() *Component {
-	defaultPromComponent = &Component{}
+	defaultPromComponent = &Component{
+		PrometheusConfig: configs.Default().PrometheusConfig,
+		ServerConfig:     configs.Default().ServerConfig,
+	}
 	return defaultPromComponent
 }
 
 // Start -
-func (c *Component) Start(ctx context.Context, cfg *configs.Config) error {
+func (c *Component) Start(ctx context.Context) error {
 	prometheusCli, err := prometheus.NewPrometheus(&prometheus.Options{
-		Endpoint: cfg.APIConfig.PrometheusEndpoint,
+		Endpoint: c.ServerConfig.PrometheusEndpoint,
 	})
 	c.PrometheusCli = prometheusCli
 	return err

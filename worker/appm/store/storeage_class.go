@@ -27,13 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//InitStorageclass init storage class
+// InitStorageclass init storage class
 func (a *appRuntimeStore) initStorageclass() error {
 	for _, storageclass := range v1.GetInitStorageClass() {
-		old, err := a.conf.KubeClient.StorageV1().StorageClasses().Get(context.Background(), storageclass.Name, metav1.GetOptions{})
+		old, err := a.k8sClient.Clientset.StorageV1().StorageClasses().Get(context.Background(), storageclass.Name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				_, err = a.conf.KubeClient.StorageV1().StorageClasses().Create(context.Background(), storageclass, metav1.CreateOptions{})
+				_, err = a.k8sClient.Clientset.StorageV1().StorageClasses().Create(context.Background(), storageclass, metav1.CreateOptions{})
 			}
 			if err != nil {
 				return err
@@ -54,9 +54,9 @@ func (a *appRuntimeStore) initStorageclass() error {
 				update = true
 			}
 			if update {
-				err := a.conf.KubeClient.StorageV1().StorageClasses().Delete(context.Background(), storageclass.Name, metav1.DeleteOptions{})
+				err := a.k8sClient.Clientset.StorageV1().StorageClasses().Delete(context.Background(), storageclass.Name, metav1.DeleteOptions{})
 				if err == nil {
-					_, err := a.conf.KubeClient.StorageV1().StorageClasses().Create(context.Background(), storageclass, metav1.CreateOptions{})
+					_, err := a.k8sClient.Clientset.StorageV1().StorageClasses().Create(context.Background(), storageclass, metav1.CreateOptions{})
 					if err != nil {
 						logrus.Errorf("recreate strageclass %s failure %s", storageclass.Name, err.Error())
 					}

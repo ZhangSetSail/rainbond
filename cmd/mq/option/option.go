@@ -18,25 +18,22 @@
 
 package option
 
-import "github.com/spf13/pflag"
+import (
+	"github.com/goodrain/rainbond/config/configs"
+	"github.com/goodrain/rainbond/config/configs/rbdcomponent"
+	"github.com/spf13/pflag"
+)
 import "github.com/sirupsen/logrus"
 import "fmt"
 
 // Config config server
 type Config struct {
-	KeyPrefix            string
-	ClusterName          string
-	APIPort              int
-	PrometheusMetricPath string
-	RunMode              string //http grpc
-	HostIP               string
-	HostName             string
 }
 
 // MQServer lb worker server
 type MQServer struct {
-	Config
-	LogLevel string
+	MQConfig  *rbdcomponent.MQConfig
+	LogConfig *configs.LogConfig
 }
 
 // NewMQServer new server
@@ -46,18 +43,13 @@ func NewMQServer() *MQServer {
 
 // AddFlags config
 func (a *MQServer) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&a.LogLevel, "log-level", "info", "the mq log level")
-	fs.StringVar(&a.KeyPrefix, "key-prefix", "/mq", "key prefix ")
-	fs.IntVar(&a.APIPort, "api-port", 6300, "the api server listen port")
-	fs.StringVar(&a.RunMode, "mode", "grpc", "the api server run mode grpc or http")
-	fs.StringVar(&a.PrometheusMetricPath, "metric", "/metrics", "prometheus metrics path")
-	fs.StringVar(&a.HostIP, "hostIP", "", "Current node Intranet IP")
-	fs.StringVar(&a.HostName, "hostName", "", "Current node host name")
+	configs.AddLogFlags(fs, a.LogConfig)
+	rbdcomponent.AddMQFlags(fs, a.MQConfig)
 }
 
 // SetLog 设置log
 func (a *MQServer) SetLog() {
-	level, err := logrus.ParseLevel(a.LogLevel)
+	level, err := logrus.ParseLevel(a.LogConfig.LogLevel)
 	if err != nil {
 		fmt.Println("set log level error." + err.Error())
 		return
