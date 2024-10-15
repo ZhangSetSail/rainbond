@@ -30,13 +30,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//trustedRegistryClient
+// trustedRegistryClient
 type trustedRegistryClient struct {
 	httpCli            *http.Client
 	server, user, pass string
 }
 
-//Repostory repostory info
+// Repostory repostory info
 type Repostory struct {
 	ID               int    `json:"id,omitempty"`
 	Namespace        string `json:"namespace,omitempty"`
@@ -54,7 +54,7 @@ func createTrustedRegistryClient(server, user, pass string) (*trustedRegistryCli
 		return nil, fmt.Errorf("server address can not be empty")
 	}
 	if !strings.HasPrefix(server, "http") {
-		server = "https://" + server
+		server = "http://" + server
 	}
 	cli := &trustedRegistryClient{
 		httpCli: http.DefaultClient,

@@ -98,7 +98,12 @@ func ImagePull(client *containerd.Client, ref string, username, password string,
 	defaultTLS := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	hostOpt := config.HostOptions{}
+	hostOpt := config.HostOptions{
+		DefaultTLS: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+		DefaultScheme: "http",
+	}
 	hostOpt.DefaultTLS = defaultTLS
 	hostOpt.Credentials = func(host string) (string, string, error) {
 		return username, password, nil
@@ -268,6 +273,7 @@ func ImagePush(client *containerd.Client, rawRef, user, pass string, logger even
 		DefaultTLS: &tls.Config{
 			InsecureSkipVerify: true,
 		},
+		DefaultScheme: "http",
 	}
 	hostOptions.Credentials = func(host string) (string, string, error) {
 		return user, pass, nil
