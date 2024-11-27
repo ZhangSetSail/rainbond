@@ -177,6 +177,7 @@ func getImageConfig(ctx context.Context, image containerd.Image) (*ocispec.Image
 }
 
 func (c *containerdImageCliImpl) ImagePush(image, user, pass string, logger event.Logger, timeout int) error {
+	logrus.Infof("test log ---------------------- user %v and pass %v", user, pass)
 	printLog(logger, "info", fmt.Sprintf("start push image：%s", image), map[string]string{"step": "pushimage"})
 	named, err := refdocker.ParseDockerRef(image)
 	if err != nil {

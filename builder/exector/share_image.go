@@ -91,11 +91,14 @@ func (i *ImageShareItem) ShareService() error {
 	}
 	user, pass := builder.GetImageUserInfoV2(i.ImageName, i.ShareInfo.ImageInfo.HubUser, i.ShareInfo.ImageInfo.HubPassword)
 	if i.ShareInfo.ImageInfo.IsTrust {
+		logrus.Infof("test log --------------------- istrust true")
 		err = i.ImageClient.TrustedImagePush(i.ImageName, user, pass, i.Logger, 30)
 	} else {
+		logrus.Infof("test log --------------------- istrust false")
 		err = i.ImageClient.ImagePush(i.ImageName, user, pass, i.Logger, 30)
 	}
 	if err != nil {
+		logrus.Infof("test log ---------------------: %v", err)
 		if err.Error() == "authentication required" {
 			i.Logger.Error("镜像仓库授权失败", map[string]string{"step": "builder-exector", "status": "failure"})
 			return err
