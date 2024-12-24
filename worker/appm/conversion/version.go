@@ -162,7 +162,7 @@ func TenantServiceVersion(as *v1.AppService, dbmanager db.Manager) error {
 						Interfaces: []kubevirtv1.Interface{
 							{
 								Name:  "default",
-								Model: "e1000",
+								Model: "virtio",
 								InterfaceBindingMethod: kubevirtv1.InterfaceBindingMethod{
 									Masquerade: &kubevirtv1.InterfaceMasquerade{},
 								},
