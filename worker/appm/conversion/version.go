@@ -42,6 +42,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
@@ -150,7 +151,10 @@ func TenantServiceVersion(as *v1.AppService, dbmanager db.Manager) error {
 				Domain: kubevirtv1.DomainSpec{
 					Resources: reource,
 					CPU: &kubevirtv1.CPU{
-						Cores: 2,
+						Cores: uint32(as.ContainerCPU / 1000),
+					},
+					Memory: &kubevirtv1.Memory{
+						Guest: resource.NewScaledQuantity(int64(as.ContainerMemory), resource.Mega),
 					},
 					Machine: &kubevirtv1.Machine{Type: "q35"},
 					Devices: kubevirtv1.Devices{
