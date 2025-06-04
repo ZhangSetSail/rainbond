@@ -728,7 +728,7 @@ type TenantServicesPortDaoImpl struct {
 func (t *TenantServicesPortDaoImpl) AddModel(mo model.Interface) error {
 	port := mo.(*model.TenantServicesPort)
 	var oldPort model.TenantServicesPort
-	if ok := t.DB.Where("service_id = ? and container_port = ?", port.ServiceID, port.ContainerPort).Find(&oldPort).RecordNotFound(); ok {
+	if ok := t.DB.Where("service_id = ? and container_port = ? and protocol = ?", port.ServiceID, port.ContainerPort, port.Protocol).Find(&oldPort).RecordNotFound(); ok {
 		if err := t.DB.Create(port).Error; err != nil {
 			return err
 		}
@@ -786,7 +786,7 @@ func (t *TenantServicesPortDaoImpl) CreateOrUpdatePortsInBatch(ports []*model.Te
 	return nil
 }
 
-// DeleteModel 删除端口
+// DeleteModel 删除端口 (删除指定端口的所有协议)
 func (t *TenantServicesPortDaoImpl) DeleteModel(serviceID string, args ...interface{}) error {
 	if len(args) < 1 {
 		return fmt.Errorf("can not provide containerPort")

@@ -116,6 +116,7 @@ func (i *ExportApp) Run(timeout time.Duration) error {
 			return err
 		}
 	} else if i.Format == "helm-chart" {
+
 		re, err = i.exportHelmChart(*ram)
 		if err != nil {
 			logrus.Errorf("export helm chart package failure %s", err.Error())
